@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acme Performance Management</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16.png?v=1">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32.png?v=1">
+    <link rel="icon" type="image/png" sizes="512x512" href="images/favicon-512.png?v=1">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png?v=1">
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800&family=PT+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <!-- Cache-busting: bump every ?v=N below by 1 on EVERY deploy that touches
+         css/*.css or js/*.js. Cloudflare's Browser Cache TTL (5 days) overrides
+         our own _headers no-cache directive, so a changed file at the SAME URL
+         can sit stale in visitors' browsers for days — a new ?v= is the only
+         thing that reliably forces a fresh fetch. Forgetting this was the exact
+         cause of one release "not showing up" for some users. -->
+    <link rel="stylesheet" href="css/styles.css?v=29">
+</head>
+<body>
+    <!-- SSO Login Gate -->
+    <div id="ssoGate" class="sso-gate">
+        <div class="sso-split">
+            <div class="sso-brand">
+                <div class="sso-eyebrow">Performance Management</div>
+                <h1 class="sso-headline">Every review, rating and feedback in one place.</h1>
+                <p class="sso-subtext">Self-assessments, manager ratings, and the insights behind them — all in one login.</p>
+
+                <ul class="sso-points">
+                    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span>Self-assessment and manager rating, side by side</span></li>
+                    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span>Skip-level visibility for your whole reporting chain</span></li>
+                    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span>Rule-based insights, no black box</span></li>
+                </ul>
+
+                <!-- Text stand-ins for now — swap each span for an <img> once the real
+                     Acme/Nova logo files (SVG preferred) are added to the
+                     repo; keep the same muted/grayscale treatment for a quiet, unified strip. -->
+                <div class="sso-brand-foot">
+                    <div class="sso-brand-foot-label">One login across</div>
+                    <div class="sso-logo-row">
+                        <span class="sso-wordmark">Acme</span>
+                        <span class="sso-wordmark">Nova</span>
+                        
+                    </div>
+                </div>
+            </div>
+            <div class="sso-panel">
+                <!-- Illustrative only — this renders before login, so it must never query
+                     real data (would leak org-wide numbers to an unauthenticated visitor).
+                     ssoStatFrames (auth.js) drives a client-side-only cycle through these
+                     three fixed mock values; see the "Sample figures" label below. -->
+                <div class="sso-stat-card" id="ssoStatCard">
+                    <div class="sso-stat-top">
+                        <span>THIS CYCLE</span>
+                        <span class="sso-stat-chip"><span class="sso-stat-dot"></span>Live</span>
+                    </div>
+                    <div class="sso-stat-row">
+                        <div class="sso-stat-num" id="ssoStatNum">132</div>
+                        <div class="sso-stat-sub" id="ssoStatLabel">total reviews</div>
+                    </div>
+                    <div class="sso-stat-bars" id="ssoStatBars">
+                        <i style="height:40%"></i><i style="height:70%"></i><i style="height:55%"></i>
+                        <i style="height:90%"></i><i style="height:60%"></i><i style="height:100%"></i>
+                    </div>
+                    <div class="sso-stat-dots" id="ssoStatDots">
+                        <span class="on"></span><span></span><span></span>
+                    </div>
+                    <div class="sso-stat-sample">Sample figures — not live data</div>
+                </div>
+
+                <div class="sso-card">
+                    <div class="sso-logo">🎬</div>
+                    <h2 class="sso-title">Acme</h2>
+                    <p class="sso-desc">Sign in with your Microsoft account to continue.</p>
+                    <button id="ssoLoginBtn" class="sso-btn" onclick="ssoSignIn()">
+                        <svg class="sso-ms-icon" fill="currentColor" viewBox="0 0 21 21" width="20" height="20">
+                            <path d="M0 0h10v10H0V0zm11 0h10v10H11V0zM0 11h10v10H0V11zm11 0h10v10H11V11z"/>
+                        </svg>
+                        Sign in with Microsoft
+                    </button>
+                    <p class="sso-note">example.com accounts only.</p>
+                    <div id="ssoError" class="alert alert-error" style="display:none; margin-top:1rem;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">🎬</div>
+                <div class="brand-text">
+                    <div class="brand-name">Acme</div>
+                    <div class="brand-tagline">Performance Management</div>
+                </div>
+            </div>
+            <nav>
+                <ul class="nav-menu">
+                    <li><button onclick="showTab('welcome', event)">Welcome</button></li>
+                    <li><button id="navMethodology" onclick="showTab('methodology', event)">Methodology</button></li>
+                    <li><button id="navManagerGuidelines" onclick="showTab('guidelines', event)">Manager Guidelines</button></li>
+                    <li><button id="navTeamRatings" onclick="showTab('team-ratings', event); renderTeamRatings();">Team Ratings</button></li>
+                    <li><button id="navSelfAssessment" onclick="showTab('self-assessment', event)" style="display:none;">Self Assessment</button></li>
+                    <li><button id="navManagerRating" onclick="showTab('rating-form', event)" style="display:none;">Manager Rating</button></li>
+                    <li><button id="navPISelfAssessment" onclick="showTab('pi-self-assessment', event); initPISelfAssessment();" style="display:none;">Performance Incentive</button></li>
+                    <li><button id="navPIManagerRating" onclick="showTab('pi-manager-rating', event); initPIManagerRating();" style="display:none;">PI: Team Ratings</button></li>
+                    <li><button onclick="showTab('dashboard', event)">Dashboard</button></li>
+                </ul>
+            </nav>
+            <div class="sidebar-foot">
+                <!-- Authenticated user bar -->
+                <div id="ssoUserBar" class="sso-user-bar" style="display:none;">
+                    <span id="ssoUserEmail"></span>
+                    <button class="btn btn-sm btn-secondary" onclick="ssoSignOut()">Sign Out</button>
+                </div>
+            </div>
+        </aside>
+
+    <div class="container">
+        <!-- Welcome Page -->
+        <div id="welcome" class="tab-content active">
+            <div class="welcome-grid" id="welcomeGrid">
+                <div class="welcome-container">
+                    <h1 style="margin-top:0;">Performance Review</h1>
+                    <p>Acme's AI-native employee performance review platform</p>
+
+                    <div style="margin: 2rem 0;">
+                        <p style="font-size: 1.1rem; color: var(--gray-dark);">Please select how you'd like to proceed:</p>
+                    </div>
+
+                    <div class="role-selector">
+                        <button class="role-btn" onclick="selectRole('self')">
+                            <span class="role-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3.75C9.92893 3.75 8.25 5.42893 8.25 7.5C8.25 9.57107 9.92893 11.25 12 11.25C14.0711 11.25 15.75 9.57107 15.75 7.5C15.75 5.42893 14.0711 3.75 12 3.75Z" fill="currentColor"/><path d="M8 13.25C5.92893 13.25 4.25 14.9289 4.25 17V18.1883C4.25 18.9415 4.79588 19.5837 5.53927 19.7051C9.8181 20.4037 14.1819 20.4037 18.4607 19.7051C19.2041 19.5837 19.75 18.9415 19.75 18.1883V17C19.75 14.9289 18.0711 13.25 16 13.25H15.6591C15.4746 13.25 15.2913 13.2792 15.1159 13.3364L14.2504 13.6191C12.7881 14.0965 11.2119 14.0965 9.74959 13.6191L8.88407 13.3364C8.70869 13.2792 8.52536 13.25 8.34087 13.25H8Z" fill="currentColor"/></svg></span>
+                            <h3>Self Assessment</h3>
+                            <p>Evaluate your own performance</p>
+                        </button>
+
+                        <button class="role-btn" id="welcomeManagerBtn" onclick="selectRole('manager')">
+                            <span class="role-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.25 5.4612V6.88179L5.55607 7.01852C4.35839 7.1152 3.38142 8.01697 3.18933 9.20309C3.14759 9.46088 3.10962 9.71911 3.07544 9.97772C3.05848 10.1061 3.12691 10.2303 3.24391 10.2857L3.32096 10.3222C8.74967 12.8926 15.2503 12.8926 20.679 10.3222L20.7561 10.2857C20.8731 10.2303 20.9415 10.1061 20.9245 9.97773C20.8904 9.71912 20.8524 9.46088 20.8107 9.20309C20.6186 8.01697 19.6416 7.1152 18.4439 7.01852L16.75 6.88179V5.4612C16.75 4.59495 16.1163 3.85906 15.2596 3.73056L14.0397 3.54757C12.6875 3.34474 11.3125 3.34474 9.96032 3.54757L8.7404 3.73056C7.88374 3.85906 7.25 4.59495 7.25 5.4612ZM13.8172 5.03098C12.6125 4.85027 11.3875 4.85027 10.1828 5.03098L8.96291 5.21396C8.84053 5.23232 8.75 5.33745 8.75 5.4612V6.77621C10.9149 6.65219 13.0851 6.65219 15.25 6.77621V5.4612C15.25 5.33745 15.1595 5.23232 15.0371 5.21396L13.8172 5.03098Z" fill="currentColor"/><path d="M21.1183 12.0709C21.1108 11.9308 20.9642 11.8432 20.8359 11.9C15.2649 14.3667 8.73504 14.3667 3.16412 11.9C3.03582 11.8432 2.88914 11.9308 2.88168 12.0709C2.7799 13.9823 2.88246 15.9019 3.18933 17.7969C3.38142 18.983 4.35839 19.8848 5.55607 19.9815L7.42799 20.1326C10.471 20.3782 13.5289 20.3782 16.572 20.1326L18.4439 19.9815C19.6416 19.8848 20.6186 18.983 20.8107 17.7969C21.1175 15.9019 21.2201 13.9823 21.1183 12.0709Z" fill="currentColor"/></svg></span>
+                            <h3>Manager Rating</h3>
+                            <p>Rate your team member's performance</p>
+                        </button>
+                    </div>
+
+                    <div style="margin-top: 3rem; padding-top: 2rem; border-top: 2px solid var(--gray-light);">
+                        <p style="font-size: 0.9rem; color: var(--gray-medium);">
+                            <strong>Note:</strong> Employee ID will be required for all submissions.
+                        </p>
+                    </div>
+                </div>
+
+                <aside class="welcome-side">
+                    <div class="welcome-side-card welcome-side-pi" id="welcomeSidePI" style="display:none;">
+                        <span class="welcome-side-eyebrow">Performance Incentive</span>
+                        <h4>You're on this cycle's PI list</h4>
+                        <p class="welcome-side-detail">A separate September bonus-linked rating, alongside your annual review.</p>
+                        <button class="welcome-side-btn" onclick="showTab('pi-self-assessment', event); initPISelfAssessment();">Go to Performance Incentive →</button>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <!-- Methodology Tab -->
+        <div id="methodology" class="tab-content">
+            <div class="info-card">
+                <h3>Scoring Methodology</h3>
+                
+                <h4>1. Rating Scale</h4>
+                <table class="methodology-table">
+                    <thead>
+                        <tr>
+                            <th>Score</th>
+                            <th>Descriptive Rating</th>
+                            <th>Numeric Range</th>
+                            <th>Performance Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>5</strong></td>
+                            <td>Exceptional</td>
+                            <td>4.5 - 5.0</td>
+                            <td>Consistently exceeds expectations in all areas</td>
+                        </tr>
+                        <tr>
+                            <td><strong>4</strong></td>
+                            <td>Exceeds Expectations</td>
+                            <td>3.5 - 4.4</td>
+                            <td>Regularly goes above and beyond requirements</td>
+                        </tr>
+                        <tr>
+                            <td><strong>3</strong></td>
+                            <td>Meets Expectations</td>
+                            <td>2.5 - 3.4</td>
+                            <td>Satisfactorily fulfills all job responsibilities</td>
+                        </tr>
+                        <tr>
+                            <td><strong>2</strong></td>
+                            <td>Needs Improvement</td>
+                            <td>1.5 - 2.4</td>
+                            <td>Performance falls short in some areas</td>
+                        </tr>
+                        <tr>
+                            <td><strong>1</strong></td>
+                            <td>Unsatisfactory</td>
+                            <td>1.0 - 1.4</td>
+                            <td>Fails to meet minimum job requirements</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h4>2. Scoring Calculation</h4>
+                <p><strong>Method:</strong> The overall performance score is calculated as the arithmetic mean (average) of all 10 category ratings.</p>
+                <p><strong>Formula & Example:</strong> If ratings are: 4, 5, 3, 4, 4, 3, 5, 4, 3, 4, then Overall Score = 39 ÷ 10 = 3.9</p>
+
+                <h4>3. Interpreting Scores</h4>
+                <table class="methodology-table">
+                    <thead>
+                        <tr>
+                            <th>Overall Score Range</th>
+                            <th>Performance Category</th>
+                            <th>Action Recommended</th>
+                            <th>Promotion Eligibility</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>4.5 - 5.0</strong></td>
+                            <td>Exceptional</td>
+                            <td>Strong candidate for promotion, increased responsibilities, leadership roles</td>
+                            <td>Highly Recommended</td>
+                        </tr>
+                        <tr>
+                            <td><strong>3.5 - 4.4</strong></td>
+                            <td>Exceeds Expectations</td>
+                            <td>Consider for promotion, stretch assignments, skill development</td>
+                            <td>Recommended</td>
+                        </tr>
+                        <tr>
+                            <td><strong>2.5 - 3.4</strong></td>
+                            <td>Meets Expectations</td>
+                            <td>Maintain current performance, identify growth opportunities</td>
+                            <td>Eligible with development</td>
+                        </tr>
+                        <tr>
+                            <td><strong>1.5 - 2.4</strong></td>
+                            <td>Needs Improvement</td>
+                            <td>Performance improvement plan, targeted training, regular check-ins</td>
+                            <td>Not Recommended</td>
+                        </tr>
+                        <tr>
+                            <td><strong>1.0 - 1.4</strong></td>
+                            <td>Unsatisfactory</td>
+                            <td>Formal improvement plan required, consider role fit</td>
+                            <td>Not Eligible</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h4>4. Weighting Considerations</h4>
+                <p><strong>Standard Approach:</strong> All 10 categories are weighted equally in this system. Each category contributes 10% to the overall score.</p>
+            </div>
+        </div>
+
+        <!-- Manager Guidelines Tab -->
+        <div id="guidelines" class="tab-content">
+            <div class="info-card">
+                <h3>Manager Guidelines for Employee Ratings</h3>
+                
+                <h4>Preparation</h4>
+                <p><strong>Before Rating:</strong> Review employee job responsibilities, goals set at beginning of period, and performance data throughout the review period. Gather specific examples of performance (both positive and areas for improvement).</p>
+                <p><strong>Documentation:</strong> Collect emails, project outcomes, peer feedback, customer feedback, and any relevant metrics or KPIs.</p>
+
+                <h4>Rating Best Practices</h4>
+                <ul>
+                    <li><strong>Be Specific:</strong> Provide concrete examples in the comments section. Instead of "good communicator," write "Led 3 client presentations with 95% satisfaction scores."</li>
+                    <li><strong>Be Objective:</strong> Focus on observable behaviors and measurable outcomes, not personality or subjective impressions.</li>
+                    <li><strong>Be Balanced:</strong> Include both strengths and areas for development. Even high performers have growth opportunities.</li>
+                    <li><strong>Be Honest:</strong> Inflated ratings hurt employees by denying them developmental feedback and create unfair promotion comparisons.</li>
+                    <li><strong>Be Consistent:</strong> Apply the same standards to all employees. If two people perform similarly, they should receive similar ratings.</li>
+                    <li><strong>Avoid Recency Bias:</strong> Consider the entire review period, not just the last few weeks. Review your documentation from throughout the period.</li>
+                    <li><strong>Avoid Halo Effect:</strong> Rate each category independently. A strength in one area should not automatically inflate ratings in unrelated areas.</li>
+                </ul>
+
+                <h4>Promotion Recommendations</h4>
+                <p><strong>Criteria to Consider:</strong> When recommending for promotion, evaluate:</p>
+                <ul>
+                    <li>Overall score (typically 3.5+ for promotion consideration)</li>
+                    <li>Readiness for increased responsibility</li>
+                    <li>Demonstration of next-level competencies</li>
+                    <li>Impact on team and organization</li>
+                    <li>Potential for growth</li>
+                    <li>Comparison to others at target level</li>
+                </ul>
+
+                <p><strong>Justification:</strong> Provide clear, compelling justification that addresses:</p>
+                <ul>
+                    <li>Specific achievements and impact</li>
+                    <li>How they exceed current role requirements</li>
+                    <li>Evidence of next-level capabilities</li>
+                    <li>Why now is the right time</li>
+                    <li>What success would look like in new role</li>
+                </ul>
+
+                <h4>Delivering Feedback</h4>
+                <ul>
+                    <li><strong>Schedule Time:</strong> Allow adequate time (45-60 min) for thoughtful discussion. Do not rush the conversation.</li>
+                    <li><strong>Two-Way Dialogue:</strong> This is a conversation, not a presentation. Ask for employee self-assessment and perspective.</li>
+                    <li><strong>Start Positive:</strong> Begin with strengths and accomplishments. Build confidence before discussing development areas.</li>
+                    <li><strong>Be Direct:</strong> Be clear about ratings and expectations. Ambiguity helps no one.</li>
+                    <li><strong>Focus on Future:</strong> Discuss development plans, goals for next period, and career growth opportunities.</li>
+                    <li><strong>Document Everything:</strong> Keep notes from the meeting and follow up with a written summary.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Team Ratings Tab (skip-level visibility) -->
+        <div id="team-ratings" class="tab-content">
+            <div class="info-card">
+                <h3>Team Ratings</h3>
+                <p style="font-size:0.85rem;color:var(--gray-medium);margin:-0.5rem 0 1.25rem;">Everyone reporting up to you, at any depth — not just your direct reports. Add a skip-level note with your own POV or recommendation on any rating; it never changes the original rating, and is visible to that person's full management chain (their manager, you, and anyone further up), not the wider org.</p>
+                <div id="teamRatingsList"><p style="text-align:center;color:var(--gray-medium);padding:1rem;">Loading…</p></div>
+            </div>
+        </div>
+
+        <!-- Self Assessment Tab -->
+        <div id="self-assessment" class="tab-content">
+            <div class="rating-form">
+                <button class="back-to-welcome" onclick="backToWelcome()">← Back to Welcome</button>
+                
+                <div class="form-header">
+                    <h2 class="form-title">Employee Self Assessment</h2>
+                    <p style="color: var(--gray-medium); margin-top: 1rem;">Rate your own performance across 5 key competencies. Be honest and reflective.</p>
+                    
+                    <div style="margin-top: 2rem;">
+                        <!-- Employee Auto-filled from SSO (search disabled) -->
+                        <div class="form-field" style="background: linear-gradient(135deg, #f0f8ff 0%, #e1f0ff 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid var(--purple-light);">
+                            <label style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">
+                                Your Profile (auto-filled from SSO) <span class="required">*</span>
+                            </label>
+                            <div class="autocomplete-wrapper" style="position: relative; margin-top: 0.75rem;">
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="selfEmployeeSearch" placeholder="Auto-filled from your login" autocomplete="off" disabled style="flex: 1; padding: 0.875rem; font-size: 1rem; border: 2px solid var(--purple-medium); border-radius: 8px; background: #f5f5f5; cursor: not-allowed; opacity: 0.6;">
+                                </div>
+                                <div class="autocomplete-dropdown" id="selfAutocompleteDropdown" style="display:none;"></div>
+                            </div>
+                            <input type="hidden" id="selfEmployeeId">
+                            <input type="hidden" id="selfEmployeeName">
+                            <small style="display: block; margin-top: 0.5rem; color: var(--gray-medium);">Your identity is automatically detected from your Microsoft SSO login. You can only rate yourself.</small>
+                        </div>
+
+                        <!-- Auto-filled Employee Details Card -->
+                        <div id="selfEmployeeDetails" class="employee-details-card" style="display:none; background: linear-gradient(135deg, #f0fff4 0%, #d9f7e8 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid #48bb78;">
+                            <h4 style="margin: 0 0 1rem 0; color: #2d7a4f; font-size: 1rem;">Employee Details</h4>
+                            <div class="emp-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                <div><strong>Name:</strong> <span id="selfEmpName"></span></div>
+                                <div><strong>Employee ID:</strong> <span id="selfEmpId"></span></div>
+                                <div><strong>Designation:</strong> <span id="selfEmpDesignation"></span></div>
+                                <div><strong>Email:</strong> <span id="selfEmpEmail"></span></div>
+                                <div><strong>Date Joined:</strong> <span id="selfEmpDateJoined"></span></div>
+                                <div><strong>Tenure (as of <span id="selfTenureCutoffLabel"></span>):</strong> <span id="selfEmpTenure"></span></div>
+                            </div>
+                            <!-- Clear selection hidden — self-assessment is locked to logged-in user -->
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label>Review Cycle:</label>
+                                <select id="selfReviewPeriod" onchange="onReviewCycleChange('self')"></select>
+                            </div>
+                            <div class="form-field">
+                                <label>Date:</label>
+                                <input type="date" id="selfRatingDate" value="">
+                            </div>
+                        </div>
+
+                        <!-- Previous Cycle Rating (shown when the selected cycle has an earlier one in REVIEW_CYCLES) -->
+                        <div id="selfPreviousCyclePanel" style="display:none; margin-top: 1rem; background: #FFF3CD; padding: 1.25rem; border-radius: 8px; border: 1px solid #856404;">
+                            <h4 style="margin: 0 0 0.75rem 0; color: #856404; font-size: 1rem;">Your Rating from <span id="selfPreviousCycleLabel"></span></h4>
+                            <div id="selfPreviousCycleContent" style="font-size: 0.9rem; color: #6b5100;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="selfAlreadySubmittedBanner" style="display:none; background: linear-gradient(135deg, #f0f8ff 0%, #e1f0ff 100%); border: 2px solid var(--purple-medium); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; text-align: center;">
+                    <h3 style="margin: 0 0 0.5rem 0; color: var(--purple-dark);">You've already submitted your self-assessment</h3>
+                    <p style="color: var(--gray-medium); margin: 0;">Only one submission is allowed per review period. Switch the Review Cycle above if you meant to submit for a different one.</p>
+                </div>
+
+                <div id="selfFormBody">
+                <div class="performance-section">
+                    <h3 class="section-title">Self Evaluation</h3>
+                    <p style="color: var(--gray-medium); margin-bottom: 2rem;">Refer to the <strong>Methodology</strong> tab for rating scale definitions.</p>
+
+                    <!-- Self Category 1 -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title">
+                                    <span class="category-number">1</span>
+                                    Job Knowledge &amp; Skills
+                                </h4>
+                                <p class="category-description">My technical knowledge, skills, and expertise relevant to my role and responsibilities</p>
+                            </div>
+                            <div class="rating-controls likert-scale">
+                                <button class="rating-btn" data-category="0" data-rating="1" onclick="setSelfRating(0,1)"><span>1</span></button>
+                                <button class="rating-btn" data-category="0" data-rating="2" onclick="setSelfRating(0,2)"><span>2</span></button>
+                                <button class="rating-btn" data-category="0" data-rating="3" onclick="setSelfRating(0,3)"><span>3</span></button>
+                                <button class="rating-btn" data-category="0" data-rating="4" onclick="setSelfRating(0,4)"><span>4</span></button>
+                                <button class="rating-btn" data-category="0" data-rating="5" onclick="setSelfRating(0,5)"><span>5</span></button>
+                            </div>
+                        </div>
+                        <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                    </div>
+
+                    <!-- Self Category 2 -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title">
+                                    <span class="category-number">2</span>
+                                    Quality of Work
+                                </h4>
+                                <p class="category-description">My accuracy, thoroughness, and attention to detail in the work I deliver</p>
+                            </div>
+                            <div class="rating-controls likert-scale">
+                                <button class="rating-btn" data-category="1" data-rating="1" onclick="setSelfRating(1,1)"><span>1</span></button>
+                                <button class="rating-btn" data-category="1" data-rating="2" onclick="setSelfRating(1,2)"><span>2</span></button>
+                                <button class="rating-btn" data-category="1" data-rating="3" onclick="setSelfRating(1,3)"><span>3</span></button>
+                                <button class="rating-btn" data-category="1" data-rating="4" onclick="setSelfRating(1,4)"><span>4</span></button>
+                                <button class="rating-btn" data-category="1" data-rating="5" onclick="setSelfRating(1,5)"><span>5</span></button>
+                            </div>
+                        </div>
+                        <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                    </div>
+
+                    <!-- Self Category 3 -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title">
+                                    <span class="category-number">3</span>
+                                    Problem Solving &amp; Initiative
+                                </h4>
+                                <p class="category-description">My ability to proactively identify challenges and take initiative in finding solutions</p>
+                            </div>
+                            <div class="rating-controls likert-scale">
+                                <button class="rating-btn" data-category="3" data-rating="1" onclick="setSelfRating(3,1)"><span>1</span></button>
+                                <button class="rating-btn" data-category="3" data-rating="2" onclick="setSelfRating(3,2)"><span>2</span></button>
+                                <button class="rating-btn" data-category="3" data-rating="3" onclick="setSelfRating(3,3)"><span>3</span></button>
+                                <button class="rating-btn" data-category="3" data-rating="4" onclick="setSelfRating(3,4)"><span>4</span></button>
+                                <button class="rating-btn" data-category="3" data-rating="5" onclick="setSelfRating(3,5)"><span>5</span></button>
+                            </div>
+                        </div>
+                        <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                    </div>
+
+                    <!-- Self Category 4 -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title">
+                                    <span class="category-number">4</span>
+                                    Teamwork &amp; Collaboration
+                                </h4>
+                                <p class="category-description">How effectively I work with others and contribute to shared team goals</p>
+                            </div>
+                            <div class="rating-controls likert-scale">
+                                <button class="rating-btn" data-category="4" data-rating="1" onclick="setSelfRating(4,1)"><span>1</span></button>
+                                <button class="rating-btn" data-category="4" data-rating="2" onclick="setSelfRating(4,2)"><span>2</span></button>
+                                <button class="rating-btn" data-category="4" data-rating="3" onclick="setSelfRating(4,3)"><span>3</span></button>
+                                <button class="rating-btn" data-category="4" data-rating="4" onclick="setSelfRating(4,4)"><span>4</span></button>
+                                <button class="rating-btn" data-category="4" data-rating="5" onclick="setSelfRating(4,5)"><span>5</span></button>
+                            </div>
+                        </div>
+                        <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                    </div>
+
+                    <!-- Self Category 5: AI Utilization -->
+                    <div class="category-item ai-category">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background:linear-gradient(135deg,#6A4C93,#9370DB);">5</span>
+                                <span class="ai-cat-name">AI Utilization</span>
+                                <span class="ai-weight-badge">30%</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">Rate yourself on all 3 subcomponents — your final AI score is their average</p>
+                        </div>
+                        <div class="ai-sub-rows">
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Adoption</span><span class="ai-sub-desc">How actively I use AI tools in my daily workflows</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="1" onclick="setSelfAISub('adoption',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="2" onclick="setSelfAISub('adoption',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="3" onclick="setSelfAISub('adoption',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="4" onclick="setSelfAISub('adoption',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="5" onclick="setSelfAISub('adoption',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Exceptional</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Fluency</span><span class="ai-sub-desc">How intelligently and effectively I use AI</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="1" onclick="setSelfAISub('fluency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="2" onclick="setSelfAISub('fluency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="3" onclick="setSelfAISub('fluency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="4" onclick="setSelfAISub('fluency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="5" onclick="setSelfAISub('fluency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Exceptional</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Impact</span><span class="ai-sub-desc">The tangible business value I create through my use of AI</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="1" onclick="setSelfAISub('impact',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="2" onclick="setSelfAISub('impact',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="3" onclick="setSelfAISub('impact',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="4" onclick="setSelfAISub('impact',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="5" onclick="setSelfAISub('impact',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Exceptional</span></div>
+                            </div>
+                        </div>
+                        <div class="ai-avg-row" id="selfAiAvgRow" style="display:none;">
+                            <span class="ai-avg-label">My AI Utilization Score (averaged)</span>
+                            <span class="ai-avg-score" id="selfAiAvgScore">—</span>
+                        </div>
+                    </div>
+
+                    <!-- Self Category 6: Accountability, Efficiency & Competency -->
+                    <div class="category-item ai-category">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background:linear-gradient(135deg,#2d7a4f,#48bb78);">6</span>
+                                <span class="ai-cat-name">Accountability, Efficiency &amp; Competency</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">Rate yourself on all 3 subcomponents — your final score is their average</p>
+                        </div>
+                        <div class="ai-sub-rows">
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Accountability</span><span class="ai-sub-desc">Whether I take end-to-end responsibility and communicate risks or context clearly</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="1" onclick="setSelfAccSub('accountability',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="2" onclick="setSelfAccSub('accountability',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="3" onclick="setSelfAccSub('accountability',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="4" onclick="setSelfAccSub('accountability',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="5" onclick="setSelfAccSub('accountability',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Efficiency</span><span class="ai-sub-desc">Whether I ship meaningful work and adapt quickly when priorities or contexts shift</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="1" onclick="setSelfAccSub('efficiency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="2" onclick="setSelfAccSub('efficiency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="3" onclick="setSelfAccSub('efficiency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="4" onclick="setSelfAccSub('efficiency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="5" onclick="setSelfAccSub('efficiency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Competency</span><span class="ai-sub-desc">Whether I solve problems with analytical thinking and pick up new tools or feedback quickly</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="1" onclick="setSelfAccSub('competency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="2" onclick="setSelfAccSub('competency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="3" onclick="setSelfAccSub('competency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="4" onclick="setSelfAccSub('competency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="5" onclick="setSelfAccSub('competency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                        </div>
+                        <div class="ai-avg-row" id="selfAccAvgRow" style="display:none;">
+                            <span class="ai-avg-label">Accountability, Efficiency &amp; Competency Score (averaged)</span>
+                            <span class="ai-avg-score" id="selfAccAvgScore">—</span>
+                        </div>
+                    </div>
+
+                    <!-- Self Category 7: OKR % Completion -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title">
+                                    <span class="category-number">7</span>
+                                    OKR % Completion
+                                </h4>
+                                <p class="category-description">Enter your OKR completion percentage. Example: 90% → 4.5 / 5</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <input type="number" id="selfOkrInput" min="0" max="100" step="1" placeholder="e.g. 90" oninput="setSelfOkrPercent(this.value)" style="width: 100px; padding: 0.75rem; font-size: 1.1rem; border: 2px solid var(--purple-medium); border-radius: 8px; text-align: center;">
+                                <span style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">%</span>
+                            </div>
+                        </div>
+                        <div id="selfOkrScoreDisplay" style="display:none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #f0fff4; border-radius: 8px; font-weight: 600; color: #2d7a4f; font-size: 0.95rem;"></div>
+                    </div>
+
+                </div>
+
+                <div class="overall-score">
+                    <h3>Overall Self-Assessment Score</h3>
+                    <div class="score-display" id="selfOverallScore">0.0</div>
+                </div>
+
+                <div class="form-field" style="margin: 2rem 0;">
+                    <label>Additional Comments (Optional):</label>
+                    <textarea id="selfComments" rows="4" placeholder="Share any additional thoughts about your performance, achievements, or areas where you'd like to develop..."></textarea>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" onclick="resetSelfForm()">Reset Form</button>
+                    <button class="btn btn-primary" onclick="submitSelfAssessment()">Submit Self Assessment</button>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rating Form Tab -->
+        <div id="rating-form" class="tab-content">
+            <div class="rating-form">
+                <button class="back-to-welcome" onclick="backToWelcome()">← Back to Welcome</button>
+                
+                <div class="form-header">
+                    <h2 class="form-title">Employee Performance Rating Form</h2>
+                    
+                    <!-- Step 1: Manager Identity (auto-filled from SSO) -->
+                    <div class="form-field" style="background: linear-gradient(135deg, #f0f8ff 0%, #e1f0ff 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid var(--purple-light);">
+                        <label style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">
+                            <span style="background: var(--purple-medium); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; margin-right: 0.5rem; font-size: 0.9rem;">STEP 1</span>
+                            Your Profile (auto-filled from SSO) <span class="required">*</span>
+                        </label>
+                        <div class="autocomplete-wrapper" style="position: relative; margin-top: 0.75rem;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="managerSearch" placeholder="Auto-filled from your login" autocomplete="off" disabled style="flex: 1; padding: 0.875rem; font-size: 1rem; border: 2px solid var(--purple-medium); border-radius: 8px; background: #f5f5f5; cursor: not-allowed; opacity: 0.6;">
+                            </div>
+                            <div class="autocomplete-dropdown" id="managerAutocompleteDropdown" style="display:none;"></div>
+                        </div>
+                        <input type="hidden" id="managerSelect" value="">
+                        <small style="display: block; margin-top: 0.5rem; color: var(--gray-medium); font-size: 0.9rem;">
+                            Your identity is automatically detected from your Microsoft SSO login.
+                        </small>
+                    </div>
+
+                    <!-- Manager Details + Direct Reports Table -->
+                    <div id="managerDetailsSection" style="display:none; background: linear-gradient(135deg, #faf5ff 0%, #f0e6ff 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid var(--purple-light);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h4 style="margin: 0; color: var(--purple-dark);">Your Details</h4>
+                            <!-- Clear button removed — manager identity is locked to SSO -->
+                        </div>
+                        <div class="emp-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem; margin-bottom: 1rem;">
+                            <div><strong>Name:</strong> <span id="mgrName"></span></div>
+                            <div><strong>Employee ID:</strong> <span id="mgrEmpId"></span></div>
+                            <div><strong>Designation:</strong> <span id="mgrDesignation"></span></div>
+                            <div><strong>Email:</strong> <span id="mgrEmail"></span></div>
+                        </div>
+                        <h4 style="margin: 1rem 0 0.75rem 0; color: var(--purple-dark);">Direct Reports</h4>
+                        <div id="directReportsCount" style="margin-bottom: 0.5rem; color: var(--purple-dark); font-size: 0.9rem; font-weight: 500;"></div>
+                        <div id="directReportsTable" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+
+                    <!-- Step 2: Employee Selection (hidden until manager selected) -->
+                    <div id="employeeSelectionSection" style="display: none; background: linear-gradient(135deg, #f0fff4 0%, #d9f7e8 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid #48bb78;">
+                        <label style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">
+                            <span style="background: #48bb78; color: white; padding: 0.25rem 0.75rem; border-radius: 20px; margin-right: 0.5rem; font-size: 0.9rem;">STEP 2</span>
+                            Select Employee to Rate <span class="required">*</span>
+                        </label>
+                        <select id="employeeSelect" onchange="selectEmployee()" style="width: 100%; padding: 0.875rem; font-size: 1rem; border: 2px solid #48bb78; border-radius: 8px; margin-top: 0.75rem; background: white;">
+                            <option value="">-- Select Employee --</option>
+                        </select>
+
+                        <!-- Selected Employee Details -->
+                        <div id="selectedEmployeeDetails" style="display:none; margin-top: 1rem; background: white; padding: 1rem; border-radius: 8px; border: 1px solid #d4edda;">
+                            <div class="emp-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem;">
+                                <div><strong>Name:</strong> <span id="selEmpName"></span></div>
+                                <div><strong>Employee ID:</strong> <span id="selEmpId"></span></div>
+                                <div><strong>Designation:</strong> <span id="selEmpDesignation"></span></div>
+                                <div><strong>Email:</strong> <span id="selEmpEmail"></span></div>
+                                <div><strong>Date Joined:</strong> <span id="selEmpDateJoined"></span></div>
+                                <div><strong>Tenure (as of <span id="mgrTenureCutoffLabel"></span>):</strong> <span id="selEmpTenure"></span></div>
+                            </div>
+                        </div>
+
+                        <!-- Self-Assessment Panel (shows what employee rated themselves) -->
+                        <div id="selfAssessmentPanel" style="display:none; margin-top: 1rem; background: #D1ECF1; padding: 1.25rem; border-radius: 8px; border: 1px solid #0C5460;">
+                            <h4 style="margin: 0 0 0.75rem 0; color: #0C5460; font-size: 1rem;">Employee's Self-Assessment Ratings</h4>
+                            <div id="selfAssessmentContent" style="font-size: 0.9rem; color: #0C5460;"></div>
+                        </div>
+
+                        <!-- Previous Cycle Rating (shown when the selected cycle has an earlier one in REVIEW_CYCLES) -->
+                        <div id="mgrPreviousCyclePanel" style="display:none; margin-top: 1rem; background: #FFF3CD; padding: 1.25rem; border-radius: 8px; border: 1px solid #856404;">
+                            <h4 style="margin: 0 0 0.75rem 0; color: #856404; font-size: 1rem;">Employee's Rating from <span id="mgrPreviousCycleLabel"></span></h4>
+                            <div id="mgrPreviousCycleContent" style="font-size: 0.9rem; color: #6b5100;"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label>Review Cycle:</label>
+                            <select id="reviewPeriod" onchange="onReviewCycleChange('mgr')"></select>
+                        </div>
+                        <div class="form-field">
+                            <label>Reviewer Name:</label>
+                            <input type="text" id="reviewerName" placeholder="Auto-filled from manager selection" readonly style="background: #f5f5f5; cursor: not-allowed;">
+                        </div>
+                        <div class="form-field">
+                            <label>Date:</label>
+                            <input type="date" id="ratingDate" value="">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="mgrAlreadySubmittedBanner" style="display:none; background: linear-gradient(135deg, #f0f8ff 0%, #e1f0ff 100%); border: 2px solid var(--purple-medium); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; text-align: center;">
+                    <h3 style="margin: 0 0 0.5rem 0; color: var(--purple-dark);">You've already submitted a rating for this employee</h3>
+                    <p style="color: var(--gray-medium); margin: 0;">Only one manager submission is allowed per employee per review period. Switch the Review Cycle above if you meant to submit for a different one.</p>
+                </div>
+
+                <div id="mgrFormBody">
+                <div class="performance-section">
+                    <h3 class="section-title">Performance Evaluation</h3>
+                    <p style="color: var(--gray-medium); margin-bottom: 2rem;">4 sections, each carrying <strong>25%</strong> of the final rating. Final score = average of all 4 sections out of 5.</p>
+
+                    <!-- Section 1: Accountability, Efficiency & Competency (25%) -->
+                    <div class="category-item ai-category">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background:linear-gradient(135deg,#2d7a4f,#48bb78);">1</span>
+                                <span class="ai-cat-name">Accountability, Efficiency &amp; Competency</span>
+                                <span class="ai-weight-badge">25%</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">Rate all 3 subcomponents — final score is their average out of 5</p>
+                        </div>
+                        <div class="ai-sub-rows">
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Accountability</span><span class="ai-sub-desc">Whether they take end-to-end responsibility and communicate risks or context clearly</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="1" onclick="setMgrAccSub('accountability',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="2" onclick="setMgrAccSub('accountability',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="3" onclick="setMgrAccSub('accountability',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="4" onclick="setMgrAccSub('accountability',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="5" onclick="setMgrAccSub('accountability',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Efficiency</span><span class="ai-sub-desc">Whether they ship meaningful work and adapt quickly when priorities or contexts shift</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="1" onclick="setMgrAccSub('efficiency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="2" onclick="setMgrAccSub('efficiency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="3" onclick="setMgrAccSub('efficiency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="4" onclick="setMgrAccSub('efficiency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="5" onclick="setMgrAccSub('efficiency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Competency</span><span class="ai-sub-desc">Whether they solve problems with analytical thinking and pick up new tools or feedback quickly</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="1" onclick="setMgrAccSub('competency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="2" onclick="setMgrAccSub('competency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="3" onclick="setMgrAccSub('competency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="4" onclick="setMgrAccSub('competency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="5" onclick="setMgrAccSub('competency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                        </div>
+                        <div class="ai-avg-row" id="mgrAccAvgRow" style="display:none;">
+                            <span class="ai-avg-label">Accountability, Efficiency &amp; Competency Score (averaged)</span>
+                            <span class="ai-avg-score" id="mgrAccAvgScore">—</span>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: AI Utilization (25%) -->
+                    <div class="category-item ai-category">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background:linear-gradient(135deg,#6A4C93,#9370DB);">2</span>
+                                <span class="ai-cat-name">AI Utilization</span>
+                                <span class="ai-weight-badge">25%</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">Rate all 3 subcomponents — final AI score is their average</p>
+                        </div>
+                        <div class="ai-sub-rows">
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Adoption</span><span class="ai-sub-desc">Whether they actually use AI in workflows</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="1" onclick="setMgrAISub('adoption',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="2" onclick="setMgrAISub('adoption',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="3" onclick="setMgrAISub('adoption',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="4" onclick="setMgrAISub('adoption',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="5" onclick="setMgrAISub('adoption',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1</span><span>5</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Fluency</span><span class="ai-sub-desc">Whether they use it intelligently</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="1" onclick="setMgrAISub('fluency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="2" onclick="setMgrAISub('fluency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="3" onclick="setMgrAISub('fluency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="4" onclick="setMgrAISub('fluency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="5" onclick="setMgrAISub('fluency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1</span><span>5</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Impact</span><span class="ai-sub-desc">Whether it creates business value</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="1" onclick="setMgrAISub('impact',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="2" onclick="setMgrAISub('impact',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="3" onclick="setMgrAISub('impact',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="4" onclick="setMgrAISub('impact',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="5" onclick="setMgrAISub('impact',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1</span><span>5</span></div>
+                            </div>
+                        </div>
+                        <div class="ai-avg-row" id="mgrAiAvgRow" style="display:none;">
+                            <span class="ai-avg-label">AI Utilization Score (averaged)</span>
+                            <span class="ai-avg-score" id="mgrAiAvgScore">—</span>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: OKR % Completion (25%) -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title">
+                                    <span class="category-number">3</span>
+                                    OKR % Completion
+                                    <span class="ai-weight-badge" style="margin-left: 0.5rem;">25%</span>
+                                </h4>
+                                <p class="category-description">Enter employee's OKR completion percentage. Example: 90% = 4.5 / 5</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <input type="number" id="mgrOkrInput" min="0" max="100" step="1" placeholder="e.g. 90" oninput="setMgrOkrPercent(this.value)" style="width: 100px; padding: 0.75rem; font-size: 1.1rem; border: 2px solid var(--purple-medium); border-radius: 8px; text-align: center;">
+                                <span style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">%</span>
+                            </div>
+                        </div>
+                        <div id="mgrOkrScoreDisplay" style="display:none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #f0fff4; border-radius: 8px; font-weight: 600; color: #2d7a4f; font-size: 0.95rem;"></div>
+                    </div>
+
+                    <!-- Section 4: Keeper's Test (25%) — inline -->
+                    <div class="category-item ai-category" style="background: linear-gradient(135deg, #f8f4ff 0%, #f0e6ff 100%); border: 2px solid var(--purple-light);">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background: linear-gradient(135deg, #d4145a, #fbb03b);">4</span>
+                                <span class="ai-cat-name">Keeper's Test</span>
+                                <span class="ai-weight-badge">25%</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">If this employee informed you they were leaving tomorrow, how strongly would you try to retain them?</p>
+                        </div>
+
+                        <div style="margin-top:10px;padding:8px 12px;background:#FEF3F2;border:1px solid #FECACA;border-radius:8px;font-size:0.78rem;color:#991B1B;line-height:1.5;">
+                            <strong>Note:</strong> This question assumes no exit decision has been made. If management has already decided to let this employee go, select <strong>0 — Plan Exit</strong>.
+                        </div>
+
+                        <!-- Likert row: 0, 2, 3, 4, 5 (1 intentionally skipped) -->
+                        <div class="kt-score-options" style="display:flex;flex-direction:row;gap:8px;margin-top:1rem;justify-content:center;">
+                            <button class="kt-score-btn score-0" onclick="setKTScore(0, this)" title="Plan exit">
+                                <div class="kt-score-num">0</div>
+                            </button>
+                            <button class="kt-score-btn score-2" onclick="setKTScore(2, this)" title="Would not fight to retain">
+                                <div class="kt-score-num">2</div>
+                            </button>
+                            <button class="kt-score-btn score-3" onclick="setKTScore(3, this)" title="Neutral">
+                                <div class="kt-score-num">3</div>
+                            </button>
+                            <button class="kt-score-btn score-4" onclick="setKTScore(4, this)" title="Concerned">
+                                <div class="kt-score-num">4</div>
+                            </button>
+                            <button class="kt-score-btn score-5" onclick="setKTScore(5, this)" title="Fight to retain">
+                                <div class="kt-score-num">5</div>
+                            </button>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.67rem;color:#bbb;margin:4px 2px 0;">
+                            <span>0 — Plan exit</span><span>5 — Fight to retain</span>
+                        </div>
+                        <div style="margin-top:8px;padding:5px 10px;background:#FFF8F0;border:1px solid #FFE0B2;border-radius:7px;font-size:0.71rem;color:#9E6B1A;">
+                            Scale is 0, 2, 3, 4, 5 — score 1 is intentionally not used.
+                        </div>
+
+                        <!-- Emotion feedback panel -->
+                        <div id="ktEmotionPanel" style="display:none;margin-top:12px;border-radius:12px;padding:1rem 1.25rem;"></div>
+
+                        <!-- Compact comment inside card -->
+                        <div style="margin-top:1rem;">
+                            <label style="font-size:0.82rem;font-weight:500;color:var(--gray-medium);">Additional Comments <span style="color:var(--danger);">*</span></label>
+                            <textarea id="kt_keeper_comment" rows="2" placeholder="Key reasons for this rating…" style="margin-top:0.25rem;font-size:0.85rem;padding:0.6rem 0.75rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;resize:none;overflow:hidden;" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overall-score">
+                    <h3>Overall Performance Score</h3>
+                    <div class="score-display" id="overallScore">0.0</div>
+                    <div class="score-label" id="overallRating">Not Rated</div>
+                </div>
+
+                <div class="promotion-section">
+                    <h3>Promotion Recommendation</h3>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="promotion" value="yes">
+                            <span>Yes, recommended for promotion</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="promotion" value="no">
+                            <span>Not recommended at this time</span>
+                        </label>
+                    </div>
+                    <div class="form-field">
+                        <label>Justification:</label>
+                        <textarea id="justification" rows="4" placeholder="Provide detailed justification for your recommendation..."></textarea>
+                    </div>
+                </div>
+
+                <div class="promotion-section">
+                    <h3>Potential</h3>
+                    <p style="font-size:0.85rem;color:var(--gray-medium);margin:-0.25rem 0 0.75rem;">Separate from performance — how much scope for growth do you see in this person, independent of this cycle's score? This is used to build the 9-Box Talent Matrix.</p>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="potential" value="low">
+                            <span>Low Potential</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="potential" value="medium">
+                            <span>Medium Potential</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="potential" value="high">
+                            <span>High Potential</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" onclick="resetForm()">Reset Form</button>
+                    <button class="btn btn-primary" onclick="submitManagerRating()" style="background: linear-gradient(135deg, #1B7A3B, #2ECC71); box-shadow: 0 4px 15px rgba(46,204,113,0.3);">Submit Rating</button>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PI Self Assessment Tab (September-cycle Performance Incentive re-rating — fixed eligibility list, separate from the annual review) -->
+        <div id="pi-self-assessment" class="tab-content">
+            <div class="rating-form">
+                <button class="back-to-welcome" onclick="backToWelcome()">← Back to Welcome</button>
+
+                <div class="form-header">
+                    <h2 class="form-title">Performance Incentive — Self Assessment</h2>
+                    <p style="color: var(--gray-medium); margin-top: 1rem;">Rates your performance from April 2026 – September 2026.</p>
+
+                    <div style="margin-top: 2rem;">
+                        <div class="form-field" style="background: linear-gradient(135deg, #f0f8ff 0%, #e1f0ff 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid var(--purple-light);">
+                            <label style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">
+                                Your Profile (auto-filled from SSO) <span class="required">*</span>
+                            </label>
+                            <div class="autocomplete-wrapper" style="position: relative; margin-top: 0.75rem;">
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="piSelfEmployeeSearch" placeholder="Auto-filled from your login" autocomplete="off" disabled style="flex: 1; padding: 0.875rem; font-size: 1rem; border: 2px solid var(--purple-medium); border-radius: 8px; background: #f5f5f5; cursor: not-allowed; opacity: 0.6;">
+                                </div>
+                            </div>
+                            <input type="hidden" id="piSelfEmployeeId">
+                            <input type="hidden" id="piSelfEmployeeName">
+                            <small style="display: block; margin-top: 0.5rem; color: var(--gray-medium);">Your identity is automatically detected from your Microsoft SSO login. You can only rate yourself, and only if you're on the PI eligibility list for this cycle.</small>
+                        </div>
+
+                        <div id="piSelfEmployeeDetails" class="employee-details-card" style="display:none; background: linear-gradient(135deg, #f0fff4 0%, #d9f7e8 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid #48bb78;">
+                            <h4 style="margin: 0 0 1rem 0; color: #2d7a4f; font-size: 1rem;">Employee Details</h4>
+                            <div class="emp-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                <div><strong>Name:</strong> <span id="piSelfEmpName"></span></div>
+                                <div><strong>Employee ID:</strong> <span id="piSelfEmpId"></span></div>
+                                <div><strong>Designation:</strong> <span id="piSelfEmpDesignation"></span></div>
+                                <div><strong>Email:</strong> <span id="piSelfEmpEmail"></span></div>
+                                <div><strong>Date Joined:</strong> <span id="piSelfEmpDateJoined"></span></div>
+                                <div><strong>Tenure (as of <span id="piSelfTenureCutoffLabel"></span>):</strong> <span id="piSelfEmpTenure"></span></div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label>Review Cycle:</label>
+                                <input type="text" id="piSelfReviewPeriodDisplay" readonly style="background: #f5f5f5; cursor: not-allowed;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="piSelfAlreadySubmittedBanner" style="display:none; background: linear-gradient(135deg, #f0f8ff 0%, #e1f0ff 100%); border: 2px solid var(--purple-medium); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; text-align: center;">
+                    <h3 style="margin: 0 0 0.5rem 0; color: var(--purple-dark);">You've already submitted your PI self-assessment</h3>
+                    <p style="color: var(--gray-medium); margin: 0;">Only one submission is allowed per PI cycle. Your manager will see it once they rate you.</p>
+                    <p style="color: var(--purple-dark); font-weight: 600; margin: 0.4rem 0 0;">This covers Apr–Sep 2026.</p>
+                </div>
+
+                <div id="piSelfFormBody">
+                <div class="performance-section">
+                    <h3 class="section-title">Self Evaluation</h3>
+                    <p style="color: var(--gray-medium); margin-bottom: 2rem;">Refer to the <strong>Methodology</strong> tab for rating scale definitions.</p>
+
+                    <!-- PI Self Category 1 -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title"><span class="category-number">1</span>Job Knowledge &amp; Skills</h4>
+                                <p class="category-description">My technical knowledge, skills, and expertise relevant to my role and responsibilities</p>
+                            </div>
+                            <div class="rating-controls likert-scale">
+                                <button class="rating-btn" data-category="0" data-rating="1" onclick="setPISelfRating(0,1)"><span>1</span></button>
+                                <button class="rating-btn" data-category="0" data-rating="2" onclick="setPISelfRating(0,2)"><span>2</span></button>
+                                <button class="rating-btn" data-category="0" data-rating="3" onclick="setPISelfRating(0,3)"><span>3</span></button>
+                                <button class="rating-btn" data-category="0" data-rating="4" onclick="setPISelfRating(0,4)"><span>4</span></button>
+                                <button class="rating-btn" data-category="0" data-rating="5" onclick="setPISelfRating(0,5)"><span>5</span></button>
+                            </div>
+                        </div>
+                        <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                    </div>
+
+                    <!-- PI Self Category 2 -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title"><span class="category-number">2</span>Quality of Work</h4>
+                                <p class="category-description">My accuracy, thoroughness, and attention to detail in the work I deliver</p>
+                            </div>
+                            <div class="rating-controls likert-scale">
+                                <button class="rating-btn" data-category="1" data-rating="1" onclick="setPISelfRating(1,1)"><span>1</span></button>
+                                <button class="rating-btn" data-category="1" data-rating="2" onclick="setPISelfRating(1,2)"><span>2</span></button>
+                                <button class="rating-btn" data-category="1" data-rating="3" onclick="setPISelfRating(1,3)"><span>3</span></button>
+                                <button class="rating-btn" data-category="1" data-rating="4" onclick="setPISelfRating(1,4)"><span>4</span></button>
+                                <button class="rating-btn" data-category="1" data-rating="5" onclick="setPISelfRating(1,5)"><span>5</span></button>
+                            </div>
+                        </div>
+                        <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                    </div>
+
+                    <!-- PI Self Category 3 -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title"><span class="category-number">3</span>Problem Solving &amp; Initiative</h4>
+                                <p class="category-description">My ability to proactively identify challenges and take initiative in finding solutions</p>
+                            </div>
+                            <div class="rating-controls likert-scale">
+                                <button class="rating-btn" data-category="3" data-rating="1" onclick="setPISelfRating(3,1)"><span>1</span></button>
+                                <button class="rating-btn" data-category="3" data-rating="2" onclick="setPISelfRating(3,2)"><span>2</span></button>
+                                <button class="rating-btn" data-category="3" data-rating="3" onclick="setPISelfRating(3,3)"><span>3</span></button>
+                                <button class="rating-btn" data-category="3" data-rating="4" onclick="setPISelfRating(3,4)"><span>4</span></button>
+                                <button class="rating-btn" data-category="3" data-rating="5" onclick="setPISelfRating(3,5)"><span>5</span></button>
+                            </div>
+                        </div>
+                        <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                    </div>
+
+                    <!-- PI Self Category 4 -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title"><span class="category-number">4</span>Teamwork &amp; Collaboration</h4>
+                                <p class="category-description">How effectively I work with others and contribute to shared team goals</p>
+                            </div>
+                            <div class="rating-controls likert-scale">
+                                <button class="rating-btn" data-category="4" data-rating="1" onclick="setPISelfRating(4,1)"><span>1</span></button>
+                                <button class="rating-btn" data-category="4" data-rating="2" onclick="setPISelfRating(4,2)"><span>2</span></button>
+                                <button class="rating-btn" data-category="4" data-rating="3" onclick="setPISelfRating(4,3)"><span>3</span></button>
+                                <button class="rating-btn" data-category="4" data-rating="4" onclick="setPISelfRating(4,4)"><span>4</span></button>
+                                <button class="rating-btn" data-category="4" data-rating="5" onclick="setPISelfRating(4,5)"><span>5</span></button>
+                            </div>
+                        </div>
+                        <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                    </div>
+
+                    <!-- PI Self Category 5: AI Utilization -->
+                    <div class="category-item ai-category">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background:linear-gradient(135deg,#6A4C93,#9370DB);">5</span>
+                                <span class="ai-cat-name">AI Utilization</span>
+                                <span class="ai-weight-badge">30%</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">Rate yourself on all 3 subcomponents — your final AI score is their average</p>
+                        </div>
+                        <div class="ai-sub-rows">
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Adoption</span><span class="ai-sub-desc">How actively I use AI tools in my daily workflows</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="1" onclick="setPISelfAISub('adoption',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="2" onclick="setPISelfAISub('adoption',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="3" onclick="setPISelfAISub('adoption',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="4" onclick="setPISelfAISub('adoption',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="5" onclick="setPISelfAISub('adoption',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Exceptional</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Fluency</span><span class="ai-sub-desc">How intelligently and effectively I use AI</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="1" onclick="setPISelfAISub('fluency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="2" onclick="setPISelfAISub('fluency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="3" onclick="setPISelfAISub('fluency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="4" onclick="setPISelfAISub('fluency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="5" onclick="setPISelfAISub('fluency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Exceptional</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Impact</span><span class="ai-sub-desc">The tangible business value I create through my use of AI</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="1" onclick="setPISelfAISub('impact',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="2" onclick="setPISelfAISub('impact',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="3" onclick="setPISelfAISub('impact',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="4" onclick="setPISelfAISub('impact',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="5" onclick="setPISelfAISub('impact',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Exceptional</span></div>
+                            </div>
+                        </div>
+                        <div class="ai-avg-row" id="piSelfAiAvgRow" style="display:none;">
+                            <span class="ai-avg-label">My AI Utilization Score (averaged)</span>
+                            <span class="ai-avg-score" id="piSelfAiAvgScore">—</span>
+                        </div>
+                    </div>
+
+                    <!-- PI Self Category 6: Accountability, Efficiency & Competency -->
+                    <div class="category-item ai-category">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background:linear-gradient(135deg,#2d7a4f,#48bb78);">6</span>
+                                <span class="ai-cat-name">Accountability, Efficiency &amp; Competency</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">Rate yourself on all 3 subcomponents — your final score is their average</p>
+                        </div>
+                        <div class="ai-sub-rows">
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Accountability</span><span class="ai-sub-desc">Whether I take end-to-end responsibility and communicate risks or context clearly</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="1" onclick="setPISelfAccSub('accountability',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="2" onclick="setPISelfAccSub('accountability',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="3" onclick="setPISelfAccSub('accountability',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="4" onclick="setPISelfAccSub('accountability',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="5" onclick="setPISelfAccSub('accountability',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Efficiency</span><span class="ai-sub-desc">Whether I ship meaningful work and adapt quickly when priorities or contexts shift</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="1" onclick="setPISelfAccSub('efficiency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="2" onclick="setPISelfAccSub('efficiency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="3" onclick="setPISelfAccSub('efficiency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="4" onclick="setPISelfAccSub('efficiency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="5" onclick="setPISelfAccSub('efficiency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Competency</span><span class="ai-sub-desc">Whether I solve problems with analytical thinking and pick up new tools or feedback quickly</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="1" onclick="setPISelfAccSub('competency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="2" onclick="setPISelfAccSub('competency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="3" onclick="setPISelfAccSub('competency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="4" onclick="setPISelfAccSub('competency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="5" onclick="setPISelfAccSub('competency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                        </div>
+                        <div class="ai-avg-row" id="piSelfAccAvgRow" style="display:none;">
+                            <span class="ai-avg-label">Accountability, Efficiency &amp; Competency Score (averaged)</span>
+                            <span class="ai-avg-score" id="piSelfAccAvgScore">—</span>
+                        </div>
+                    </div>
+
+                    <!-- PI Self Category 7: OKR % Completion -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title"><span class="category-number">7</span>OKR % Completion</h4>
+                                <p class="category-description">Enter your OKR completion percentage. Example: 90% → 4.5 / 5</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <input type="number" id="piSelfOkrInput" min="0" max="100" step="1" placeholder="e.g. 90" oninput="setPISelfOkrPercent(this.value)" style="width: 100px; padding: 0.75rem; font-size: 1.1rem; border: 2px solid var(--purple-medium); border-radius: 8px; text-align: center;">
+                                <span style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">%</span>
+                            </div>
+                        </div>
+                        <div id="piSelfOkrScoreDisplay" style="display:none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #f0fff4; border-radius: 8px; font-weight: 600; color: #2d7a4f; font-size: 0.95rem;"></div>
+                    </div>
+
+                </div>
+
+                <div class="overall-score">
+                    <h3>Overall Self-Assessment Score</h3>
+                    <div class="score-display" id="piSelfOverallScore">0.0</div>
+                </div>
+
+                <div class="form-field" style="margin: 2rem 0;">
+                    <label>Additional Comments (Optional):</label>
+                    <textarea id="piSelfComments" rows="4" placeholder="Share any additional thoughts about your performance, achievements, or areas where you'd like to develop..."></textarea>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" onclick="resetPISelfForm()">Reset Form</button>
+                    <button class="btn btn-primary" onclick="submitPISelfAssessment()">Submit PI Self Assessment</button>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PI Manager Rating Tab -->
+        <div id="pi-manager-rating" class="tab-content">
+            <div class="rating-form">
+                <button class="back-to-welcome" onclick="backToWelcome()">← Back to Welcome</button>
+
+                <div class="form-header">
+                    <h2 class="form-title">Performance Incentive — Team Ratings</h2>
+                    <p style="color: var(--gray-medium); margin-top: 1rem;">Rate the PI-eligible employees in your reporting line (any depth). Rates their performance from April 2026 – September 2026.</p>
+
+                    <div class="form-field" style="background: linear-gradient(135deg, #f0f8ff 0%, #e1f0ff 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid var(--purple-light);">
+                        <label style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">
+                            Your Profile (auto-filled from SSO) <span class="required">*</span>
+                        </label>
+                        <div class="autocomplete-wrapper" style="position: relative; margin-top: 0.75rem;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="piMgrSearch" placeholder="Auto-filled from your login" autocomplete="off" disabled style="flex: 1; padding: 0.875rem; font-size: 1rem; border: 2px solid var(--purple-medium); border-radius: 8px; background: #f5f5f5; cursor: not-allowed; opacity: 0.6;">
+                            </div>
+                        </div>
+                        <input type="hidden" id="piMgrSelect" value="">
+                        <small style="display: block; margin-top: 0.5rem; color: var(--gray-medium); font-size: 0.9rem;">
+                            Your identity is automatically detected from your Microsoft SSO login.
+                        </small>
+                    </div>
+
+                    <div id="piMgrDetailsSection" style="display:none; background: linear-gradient(135deg, #faf5ff 0%, #f0e6ff 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid var(--purple-light);">
+                        <h4 style="margin: 0 0 1rem 0; color: var(--purple-dark);">Your Details</h4>
+                        <div class="emp-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem; margin-bottom: 1rem;">
+                            <div><strong>Name:</strong> <span id="piMgrName"></span></div>
+                            <div><strong>Employee ID:</strong> <span id="piMgrEmpId"></span></div>
+                            <div><strong>Designation:</strong> <span id="piMgrDesignation"></span></div>
+                            <div><strong>Email:</strong> <span id="piMgrEmail"></span></div>
+                        </div>
+                        <h4 style="margin: 1rem 0 0.75rem 0; color: var(--purple-dark);">PI-Eligible Reports (your full reporting line)</h4>
+                        <div id="piDirectReportsCount" style="margin-bottom: 0.5rem; color: var(--purple-dark); font-size: 0.9rem; font-weight: 500;"></div>
+                        <div id="piDirectReportsTable" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+
+                    <div id="piEmployeeSelectionSection" style="display: none; background: linear-gradient(135deg, #f0fff4 0%, #d9f7e8 100%); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border: 2px solid #48bb78;">
+                        <label style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">Select Employee to Rate <span class="required">*</span></label>
+                        <select id="piEmployeeSelect" onchange="selectPIEmployee()" style="width: 100%; padding: 0.875rem; font-size: 1rem; border: 2px solid #48bb78; border-radius: 8px; margin-top: 0.75rem; background: white;">
+                            <option value="">-- Select Employee --</option>
+                        </select>
+
+                        <div id="piSelectedEmployeeDetails" style="display:none; margin-top: 1rem; background: white; padding: 1rem; border-radius: 8px; border: 1px solid #d4edda;">
+                            <div class="emp-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem;">
+                                <div><strong>Name:</strong> <span id="piSelEmpName"></span></div>
+                                <div><strong>Employee ID:</strong> <span id="piSelEmpId"></span></div>
+                                <div><strong>Designation:</strong> <span id="piSelEmpDesignation"></span></div>
+                                <div><strong>Email:</strong> <span id="piSelEmpEmail"></span></div>
+                            </div>
+                        </div>
+
+                        <div id="piSelfAssessmentPanel" style="display:none; margin-top: 1rem; background: #D1ECF1; padding: 1.25rem; border-radius: 8px; border: 1px solid #0C5460;">
+                            <h4 style="margin: 0 0 0.75rem 0; color: #0C5460; font-size: 1rem;">Employee's PI Self-Assessment Ratings</h4>
+                            <div id="piSelfAssessmentContent" style="font-size: 0.9rem; color: #0C5460;"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label>Review Cycle:</label>
+                            <input type="text" id="piReviewPeriodDisplay" readonly style="background: #f5f5f5; cursor: not-allowed;">
+                        </div>
+                        <div class="form-field">
+                            <label>Reviewer Name:</label>
+                            <input type="text" id="piReviewerName" placeholder="Auto-filled from manager selection" readonly style="background: #f5f5f5; cursor: not-allowed;">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="piMgrAlreadySubmittedBanner" style="display:none; background: linear-gradient(135deg, #f0f8ff 0%, #e1f0ff 100%); border: 2px solid var(--purple-medium); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; text-align: center;">
+                    <h3 style="margin: 0 0 0.5rem 0; color: var(--purple-dark);">You've already submitted a PI rating for this employee</h3>
+                    <p style="color: var(--gray-medium); margin: 0;">Only one manager submission is allowed per employee per PI cycle.</p>
+                    <p style="color: var(--purple-dark); font-weight: 600; margin: 0.4rem 0 0;">This covers Apr–Sep 2026.</p>
+                </div>
+
+                <div id="piMgrFormBody">
+                <div class="performance-section">
+                    <h3 class="section-title">Performance Evaluation</h3>
+                    <p style="color: var(--gray-medium); margin-bottom: 2rem;">4 sections, each carrying <strong>25%</strong> of the final rating. Final score = average of all 4 sections out of 5.</p>
+
+                    <!-- PI Section 1: Accountability, Efficiency & Competency (25%) -->
+                    <div class="category-item ai-category">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background:linear-gradient(135deg,#2d7a4f,#48bb78);">1</span>
+                                <span class="ai-cat-name">Accountability, Efficiency &amp; Competency</span>
+                                <span class="ai-weight-badge">25%</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">Rate all 3 subcomponents — final score is their average out of 5</p>
+                        </div>
+                        <div class="ai-sub-rows">
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Accountability</span><span class="ai-sub-desc">Whether they take end-to-end responsibility and communicate risks or context clearly</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="1" onclick="setPIMgrAccSub('accountability',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="2" onclick="setPIMgrAccSub('accountability',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="3" onclick="setPIMgrAccSub('accountability',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="4" onclick="setPIMgrAccSub('accountability',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_accountability" data-rating="5" onclick="setPIMgrAccSub('accountability',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Efficiency</span><span class="ai-sub-desc">Whether they ship meaningful work and adapt quickly when priorities or contexts shift</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="1" onclick="setPIMgrAccSub('efficiency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="2" onclick="setPIMgrAccSub('efficiency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="3" onclick="setPIMgrAccSub('efficiency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="4" onclick="setPIMgrAccSub('efficiency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_efficiency" data-rating="5" onclick="setPIMgrAccSub('efficiency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">Competency</span><span class="ai-sub-desc">Whether they solve problems with analytical thinking and pick up new tools or feedback quickly</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="1" onclick="setPIMgrAccSub('competency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="2" onclick="setPIMgrAccSub('competency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="3" onclick="setPIMgrAccSub('competency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="4" onclick="setPIMgrAccSub('competency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="acc_competency" data-rating="5" onclick="setPIMgrAccSub('competency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1 — Low</span><span>5 — Outstanding</span></div>
+                            </div>
+                        </div>
+                        <div class="ai-avg-row" id="piMgrAccAvgRow" style="display:none;">
+                            <span class="ai-avg-label">Accountability, Efficiency &amp; Competency Score (averaged)</span>
+                            <span class="ai-avg-score" id="piMgrAccAvgScore">—</span>
+                        </div>
+                    </div>
+
+                    <!-- PI Section 2: AI Utilization (25%) -->
+                    <div class="category-item ai-category">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background:linear-gradient(135deg,#6A4C93,#9370DB);">2</span>
+                                <span class="ai-cat-name">AI Utilization</span>
+                                <span class="ai-weight-badge">25%</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">Rate all 3 subcomponents — final AI score is their average</p>
+                        </div>
+                        <div class="ai-sub-rows">
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Adoption</span><span class="ai-sub-desc">Whether they actually use AI in workflows</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="1" onclick="setPIMgrAISub('adoption',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="2" onclick="setPIMgrAISub('adoption',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="3" onclick="setPIMgrAISub('adoption',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="4" onclick="setPIMgrAISub('adoption',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_adoption" data-rating="5" onclick="setPIMgrAISub('adoption',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1</span><span>5</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Fluency</span><span class="ai-sub-desc">Whether they use it intelligently</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="1" onclick="setPIMgrAISub('fluency',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="2" onclick="setPIMgrAISub('fluency',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="3" onclick="setPIMgrAISub('fluency',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="4" onclick="setPIMgrAISub('fluency',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_fluency" data-rating="5" onclick="setPIMgrAISub('fluency',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1</span><span>5</span></div>
+                            </div>
+                            <div class="ai-sub-row">
+                                <div class="ai-sub-info"><span class="ai-sub-label">AI Impact</span><span class="ai-sub-desc">Whether it creates business value</span></div>
+                                <div class="rating-controls likert-scale">
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="1" onclick="setPIMgrAISub('impact',1)"><span>1</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="2" onclick="setPIMgrAISub('impact',2)"><span>2</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="3" onclick="setPIMgrAISub('impact',3)"><span>3</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="4" onclick="setPIMgrAISub('impact',4)"><span>4</span></button>
+                                    <button class="rating-btn" data-category="ai_impact" data-rating="5" onclick="setPIMgrAISub('impact',5)"><span>5</span></button>
+                                </div>
+                                <div class="likert-axis"><span>1</span><span>5</span></div>
+                            </div>
+                        </div>
+                        <div class="ai-avg-row" id="piMgrAiAvgRow" style="display:none;">
+                            <span class="ai-avg-label">AI Utilization Score (averaged)</span>
+                            <span class="ai-avg-score" id="piMgrAiAvgScore">—</span>
+                        </div>
+                    </div>
+
+                    <!-- PI Section 3: OKR % Completion (25%) -->
+                    <div class="category-item">
+                        <div class="category-header">
+                            <div class="category-info">
+                                <h4 class="category-title">
+                                    <span class="category-number">3</span>
+                                    OKR % Completion
+                                    <span class="ai-weight-badge" style="margin-left: 0.5rem;">25%</span>
+                                </h4>
+                                <p class="category-description">Enter employee's OKR completion percentage. Example: 90% = 4.5 / 5</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <input type="number" id="piMgrOkrInput" min="0" max="100" step="1" placeholder="e.g. 90" oninput="setPIMgrOkrPercent(this.value)" style="width: 100px; padding: 0.75rem; font-size: 1.1rem; border: 2px solid var(--purple-medium); border-radius: 8px; text-align: center;">
+                                <span style="font-size: 1.1rem; font-weight: 600; color: var(--gray-dark);">%</span>
+                            </div>
+                        </div>
+                        <div id="piMgrOkrScoreDisplay" style="display:none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #f0fff4; border-radius: 8px; font-weight: 600; color: #2d7a4f; font-size: 0.95rem;"></div>
+                    </div>
+
+                    <!-- PI Section 4: Keeper's Test (25%) — inline -->
+                    <div class="category-item ai-category" style="background: linear-gradient(135deg, #f8f4ff 0%, #f0e6ff 100%); border: 2px solid var(--purple-light);">
+                        <div class="ai-cat-header">
+                            <div class="ai-cat-title-row">
+                                <span class="category-number" style="background: linear-gradient(135deg, #d4145a, #fbb03b);">4</span>
+                                <span class="ai-cat-name">Keeper's Test</span>
+                                <span class="ai-weight-badge">25%</span>
+                            </div>
+                            <p class="category-description" style="margin:0.4rem 0 0 0;">If this employee informed you they were leaving tomorrow, how strongly would you try to retain them?</p>
+                        </div>
+
+                        <div style="margin-top:10px;padding:8px 12px;background:#FEF3F2;border:1px solid #FECACA;border-radius:8px;font-size:0.78rem;color:#991B1B;line-height:1.5;">
+                            <strong>Note:</strong> This question assumes no exit decision has been made. If management has already decided to let this employee go, select <strong>0 — Plan Exit</strong>.
+                        </div>
+
+                        <div class="kt-score-options" style="display:flex;flex-direction:row;gap:8px;margin-top:1rem;justify-content:center;">
+                            <button class="kt-score-btn score-0" onclick="setPIKTScore(0, this)" title="Plan exit"><div class="kt-score-num">0</div></button>
+                            <button class="kt-score-btn score-2" onclick="setPIKTScore(2, this)" title="Would not fight to retain"><div class="kt-score-num">2</div></button>
+                            <button class="kt-score-btn score-3" onclick="setPIKTScore(3, this)" title="Neutral"><div class="kt-score-num">3</div></button>
+                            <button class="kt-score-btn score-4" onclick="setPIKTScore(4, this)" title="Concerned"><div class="kt-score-num">4</div></button>
+                            <button class="kt-score-btn score-5" onclick="setPIKTScore(5, this)" title="Fight to retain"><div class="kt-score-num">5</div></button>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.67rem;color:#bbb;margin:4px 2px 0;">
+                            <span>0 — Plan exit</span><span>5 — Fight to retain</span>
+                        </div>
+                        <div style="margin-top:8px;padding:5px 10px;background:#FFF8F0;border:1px solid #FFE0B2;border-radius:7px;font-size:0.71rem;color:#9E6B1A;">
+                            Scale is 0, 2, 3, 4, 5 — score 1 is intentionally not used.
+                        </div>
+
+                        <div id="piKtEmotionPanel" style="display:none;margin-top:12px;border-radius:12px;padding:1rem 1.25rem;"></div>
+
+                        <div style="margin-top:1rem;">
+                            <label style="font-size:0.82rem;font-weight:500;color:var(--gray-medium);">Additional Comments <span style="color:var(--danger);">*</span></label>
+                            <textarea id="piKt_keeper_comment" rows="2" placeholder="Key reasons for this rating…" style="margin-top:0.25rem;font-size:0.85rem;padding:0.6rem 0.75rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;resize:none;overflow:hidden;" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overall-score">
+                    <h3>Overall PI Score</h3>
+                    <div class="score-display" id="piOverallScore">0.0</div>
+                    <div class="score-label" id="piOverallRating">Not Rated</div>
+                </div>
+
+                <div class="form-field" style="margin: 2rem 0;">
+                    <label>Remarks:</label>
+                    <textarea id="piMgrJustification" rows="4" placeholder="Explain the reasoning behind this PI rating (optional)..."></textarea>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" onclick="resetPIMgrForm()">Reset Form</button>
+                    <button class="btn btn-primary" onclick="submitPIManagerRating()" style="background: linear-gradient(135deg, #1B7A3B, #2ECC71); box-shadow: 0 4px 15px rgba(46,204,113,0.3);">Submit PI Rating</button>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Tab (Login + Admin Panel) -->
+        <div id="dashboard" class="tab-content">
+            <!-- Login View -->
+            <div id="loginView">
+                <div class="hero">
+                    <h1>Admin <span class="highlight">Dashboard</span></h1>
+                    <p>Access comprehensive performance analytics and manage ratings</p>
+                </div>
+
+                <div class="login-card">
+                    <h2 class="login-title">Admin Login</h2>
+                    <div class="form-field">
+                        <label>Username</label>
+                        <input type="text" id="adminUsername" placeholder="Enter username">
+                    </div>
+                    <div class="form-field" style="margin-top: 1.5rem;">
+                        <label>Password</label>
+                        <input type="password" id="adminPassword" placeholder="Enter password" onkeydown="if(event.key==='Enter') adminLogin()">
+                    </div>
+                    <div id="loginError" class="alert alert-error" style="display: none; margin-top: 1rem;">
+                        Invalid username or password
+                    </div>
+                    <button class="btn btn-primary" onclick="adminLogin()" style="width: 100%; margin-top: 2rem;">
+                        Login
+                    </button>
+                </div>
+            </div>
+
+            <!-- Admin Panel View -->
+            <div id="adminView" style="display: none;">
+                <div class="page-head">
+                    <div>
+                        <span class="page-head-eyebrow">Admin · Dashboard</span>
+                        <h1>Overview</h1>
+                        <p>Manage employee performance ratings and reports</p>
+                    </div>
+                    <div class="page-head-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="adminLogout()">Logout</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-idx">01 · Total</div>
+                        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.25 2.7454C11.25 2.6288 11.1501 2.53678 11.0341 2.5485C6.24107 3.03249 2.5 7.07936 2.5 12C2.5 17.2467 6.75329 21.5 12 21.5C14.6367 21.5 17.0227 20.4254 18.7434 18.6915C18.8256 18.6087 18.8165 18.4734 18.7258 18.4L11.5286 12.5833C11.3524 12.4409 11.25 12.2265 11.25 12V2.7454Z" fill="currentColor"/><path d="M19.6695 17.2341C19.7601 17.3074 19.8942 17.2879 19.958 17.1903C20.7671 15.9522 21.2952 14.5134 21.4515 12.9654C21.4632 12.8494 21.3712 12.75 21.2546 12.75H14.6868C14.4983 12.75 14.4145 12.987 14.5611 13.1055L19.6695 17.2341Z" fill="currentColor"/><path d="M21.2546 11.25C21.3712 11.25 21.4632 11.1502 21.4515 11.0342C20.9996 6.55868 17.4413 3.00039 12.9658 2.54849C12.8498 2.53678 12.75 2.6288 12.75 2.7454V10.95C12.75 11.1157 12.8843 11.25 13.05 11.25H21.2546Z" fill="currentColor"/></svg></div>
+                        <div class="stat-number" id="totalRatings">0</div>
+                        <div class="stat-label">Total Ratings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-idx">02 · Score</div>
+                        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.8649 2.99622C12.4796 2.33207 11.5204 2.33207 11.1351 2.99622L8.42101 7.67353C8.23064 8.00161 7.90159 8.22551 7.52653 8.28215L2.44021 9.05038C1.58593 9.17941 1.28627 10.258 1.95158 10.8092L5.74067 13.9484C6.09141 14.239 6.25633 14.6974 6.17113 15.1448L5.17996 20.35C5.02327 21.1728 5.88706 21.8121 6.62821 21.4219L11.4176 18.9C11.7821 18.7081 12.2178 18.7081 12.5824 18.9L17.3718 21.4219C18.1129 21.8121 18.9767 21.1728 18.82 20.35L17.8289 15.1448C17.7437 14.6974 17.9086 14.239 18.2593 13.9484L22.0484 10.8092C22.7137 10.258 22.4141 9.17941 21.5598 9.05038L16.4735 8.28215C16.0984 8.22551 15.7694 8.00161 15.579 7.67353L12.8649 2.99622Z" fill="currentColor"/></svg></div>
+                        <div class="stat-number" id="avgScore">0.0</div>
+                        <div class="stat-label">Average Score</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-idx">03 · Ready</div>
+                        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.25 9.5C10.25 8.5335 11.0335 7.75 12 7.75C12.9665 7.75 13.75 8.5335 13.75 9.5C13.75 10.4665 12.9665 11.25 12 11.25C11.0335 11.25 10.25 10.4665 10.25 9.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M5 9.5C5 5.63401 8.13401 2.5 12 2.5C15.866 2.5 19 5.63401 19 9.5C19 10.8722 18.6052 12.1522 17.9229 13.2325L20.6495 17.9551C20.7967 18.2101 20.7812 18.5276 20.6097 18.767C20.4382 19.0063 20.1425 19.1231 19.8537 19.0657L17.2376 18.5455L16.3801 21.0713C16.2854 21.35 16.0364 21.5477 15.7434 21.5765C15.4504 21.6054 15.1676 21.4601 15.0204 21.2051L12.3002 16.4937C12.2007 16.4979 12.1006 16.5 12 16.5C11.8994 16.5 11.7993 16.4979 11.6998 16.4937L8.97965 21.2051C8.83258 21.4599 8.5502 21.6051 8.25745 21.5766C7.96471 21.5481 7.71564 21.3511 7.62047 21.0728L6.75854 18.5522L4.14467 19.066C3.85606 19.1228 3.56093 19.0056 3.38988 18.7663C3.21882 18.527 3.20342 18.2099 3.35048 17.9551L6.07708 13.2325C5.39483 12.1522 5 10.8722 5 9.5ZM7.08592 14.4852C7.91817 15.3056 8.95488 15.9192 10.1127 16.2426L8.50579 19.0259L7.96599 17.4473C7.84463 17.0924 7.47972 16.8817 7.11167 16.9541L5.4747 17.2759L7.08592 14.4852ZM13.8873 16.2426L15.4918 19.0217L16.0287 17.4406C16.1497 17.0842 16.516 16.8727 16.8851 16.9461L18.5229 17.2717L16.9141 14.4852C16.0818 15.3056 15.0451 15.9192 13.8873 16.2426ZM12 6.25C10.2051 6.25 8.75 7.70507 8.75 9.5C8.75 11.2949 10.2051 12.75 12 12.75C13.7949 12.75 15.25 11.2949 15.25 9.5C15.25 7.70507 13.7949 6.25 12 6.25Z" fill="currentColor"/></svg></div>
+                        <div class="stat-number" id="promotionReady">0</div>
+                        <div class="stat-label">Promotion Ready</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-idx">04 · Pending</div>
+                        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.6637 11.8386L10.851 12L10.6637 12.1614C8.68826 13.8634 7.04583 15.9172 5.81982 18.2185C5.33871 19.1216 5.93601 20.2227 6.95536 20.3118L8.1289 20.4144C10.7047 20.6396 13.2953 20.6396 15.8711 20.4144L17.0447 20.3118C18.064 20.2227 18.6613 19.1216 18.1802 18.2185C16.9542 15.9172 15.3118 13.8634 13.3363 12.1614L13.149 12L13.3363 11.8386C15.3118 10.1366 16.9542 8.08279 18.1802 5.78147C18.6613 4.8784 18.064 3.77732 17.0447 3.6882L15.8711 3.58559C13.2953 3.36038 10.7047 3.36039 8.1289 3.58559L6.95536 3.6882C5.93601 3.77732 5.33871 4.8784 5.81982 5.78148C7.04583 8.08279 8.68826 10.1366 10.6637 11.8386ZM12 9.75C11.801 9.75 11.6103 9.67098 11.4696 9.53033L9.46963 7.53033C9.25513 7.31583 9.19097 6.99324 9.30705 6.71298C9.42314 6.43273 9.69661 6.25 9.99996 6.25H14C14.3033 6.25 14.5768 6.43273 14.6929 6.71298C14.809 6.99324 14.7448 7.31583 14.5303 7.53033L12.5303 9.53033C12.3896 9.67098 12.1989 9.75 12 9.75ZM12 14.25C11.801 14.25 11.6103 14.329 11.4696 14.4697L9.46963 16.4697C9.25513 16.6842 9.19097 17.0068 9.30705 17.287C9.42314 17.5673 9.69661 17.75 9.99996 17.75H14C14.3033 17.75 14.5768 17.5673 14.6929 17.287C14.809 17.0068 14.7448 16.6842 14.5303 16.4697L12.5303 14.4697C12.3896 14.329 12.1989 14.25 12 14.25Z" fill="currentColor"/></svg></div>
+                        <div class="stat-number" id="pendingReviews">0</div>
+                        <div class="stat-label">Pending Decisions</div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3>Insights</h3>
+                    <p style="font-size:0.85rem;color:var(--gray-medium);margin:-0.5rem 0 1rem;">Computed directly from submitted ratings — thresholds and counts, not a generative AI model. Each card shows the numbers behind it so nothing here is a black box. Insights need enough data to be meaningful; cards with too little data to support a claim are left out rather than shown with a guess.</p>
+                    <div id="insightsList"><p style="text-align:center;color:var(--gray-medium);padding:1rem;">Loading…</p></div>
+                </div>
+
+                <div class="info-card">
+                    <h3>Employee Profile</h3>
+                    <p style="font-size:0.85rem;color:var(--gray-medium);margin:-0.5rem 0 1rem;">Search a person to see their full rating history (self-assessment and manager rating, every cycle), the self-vs-manager comparison, and insights specific to them.</p>
+                    <div class="autocomplete-wrapper" style="position:relative;max-width:420px;">
+                        <input type="text" id="profileEmployeeSearch" class="search-input" placeholder="Search by name or employee ID…" oninput="onProfileEmployeeSearch()" autocomplete="off">
+                        <div class="autocomplete-dropdown" id="profileAutocompleteDropdown" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3>Organization Chart</h3>
+                    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; margin-bottom:1.25rem;">
+                        <div class="form-field" style="min-width:180px;">
+                            <label>Company:</label>
+                            <select id="orgChartCompanyFilter" onchange="renderOrgChart()">
+                                <option value="all">All Companies</option>
+                                <option value="acme">Acme</option>
+                                <option value="nova">Nova</option>
+                                
+                            </select>
+                        </div>
+                        <div class="form-field" style="flex:1; min-width:220px;">
+                            <label>Search:</label>
+                            <input type="text" id="orgChartSearch" class="search-input" placeholder="Search by name, ID, or designation…" oninput="renderOrgChart()">
+                        </div>
+                        <div class="form-field" style="min-width:160px;">
+                            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                                <input type="checkbox" id="orgChartShowInactive" onchange="renderOrgChart()" style="width:auto;">
+                                Show inactive/exited
+                            </label>
+                        </div>
+                    </div>
+                    <div id="orgChartCount" style="font-size:0.85rem; color: var(--hc-mid-grey); margin-bottom:0.75rem;"></div>
+                    <div id="orgChartContainer" class="org-chart-container"></div>
+                </div>
+
+                <div class="info-card">
+                    <h3>9-Box Talent Matrix</h3>
+                    <p style="font-size:0.85rem;color:var(--gray-medium);margin:-0.5rem 0 1.25rem;">Performance (from each cycle's overall score) × Potential (captured on the Manager Rating form). Fills in as managers submit new ratings — admin-only, like Management Decision.</p>
+                    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; margin-bottom:1.25rem;">
+                        <div class="form-field" style="min-width:220px;">
+                            <label>Cycle:</label>
+                            <select id="boxCycleFilter" onchange="onBoxCycleChange()">
+                                <option value="live">Live — from Manager Ratings</option>
+                                <option value="2026-04">April 2026 (imported snapshot)</option>
+                            </select>
+                        </div>
+                        <div class="form-field" style="min-width:180px;" id="boxCompanyFilterWrap">
+                            <label>Company:</label>
+                            <select id="boxCompanyFilter" onchange="onBoxCompanyChange()">
+                                <option value="all">All Companies</option>
+                                <option value="acme">Acme</option>
+                                <option value="nova">Nova</option>
+                                
+                            </select>
+                        </div>
+                        <div class="form-field" style="min-width:200px;" id="boxManagerFilterWrap">
+                            <label>Manager:</label>
+                            <select id="boxManagerFilter" onchange="renderNineBox()">
+                                <option value="all">All Managers</option>
+                            </select>
+                        </div>
+                        <div class="form-field" style="min-width:220px;">
+                            <label>View:</label>
+                            <div style="display:flex; gap:4px; background:var(--purple-light); border-radius:9px; padding:3px;">
+                                <button type="button" id="boxViewGridBtn" class="btn btn-sm btn-primary" style="flex:1;" onclick="setBoxView('grid')">Grid</button>
+                                <button type="button" id="boxViewPotentialBtn" class="btn btn-sm btn-secondary" style="flex:1;" onclick="setBoxView('potential')">By Potential</button>
+                            </div>
+                        </div>
+                        <div class="form-field" style="min-width:160px;">
+                            <label>&nbsp;</label>
+                            <button type="button" class="btn btn-secondary" onclick="downloadNineBoxCSV()">
+                                <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 16.25C5.41421 16.25 5.75 16.5858 5.75 17V19C5.75 19.1381 5.86193 19.25 6 19.25H18C18.1381 19.25 18.25 19.1381 18.25 19V17C18.25 16.5858 18.5858 16.25 19 16.25C19.4142 16.25 19.75 16.5858 19.75 17V19C19.75 19.9665 18.9665 20.75 18 20.75H6C5.0335 20.75 4.25 19.9665 4.25 19V17C4.25 16.5858 4.58579 16.25 5 16.25Z" fill="currentColor"/><path d="M10.7379 3.75C10.2236 3.75 9.79447 4.14312 9.74955 4.65555C9.59591 6.40826 9.56881 8.16959 9.66838 9.92584C9.42139 9.93949 9.1745 9.95531 8.92773 9.9733L7.43822 10.0819C6.86392 10.1237 6.54288 10.7641 6.85293 11.2493C7.91497 12.9114 9.28343 14.3563 10.8854 15.5071L11.4821 15.9358C11.7916 16.1581 12.2085 16.1581 12.518 15.9358L13.1147 15.5071C14.7167 14.3563 16.0851 12.9114 17.1472 11.2493C17.4572 10.7641 17.1362 10.1237 16.5619 10.0819L15.0724 9.9733C14.8256 9.95531 14.5787 9.93949 14.3317 9.92584C14.4313 8.16959 14.4042 6.40826 14.2506 4.65554C14.2056 4.14312 13.7765 3.75 13.2622 3.75H10.7379Z" fill="currentColor"/></svg></span> Download CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div id="boxScopeNote" style="font-size:0.85rem; color:var(--hc-mid-grey); margin-bottom:0.75rem;"></div>
+                    <div id="boxUnmatchedNote" style="display:none;font-size:0.8rem; color:var(--hc-warning); background:#fdf4e3; border:1px solid #f0dca8; border-radius:8px; padding:0.6rem 0.8rem; margin-bottom:0.75rem;"></div>
+
+                    <div id="boxGridView">
+                        <div style="display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:0.5rem;">
+                            <div style="grid-row:1; grid-column:1; display:flex; align-items:center; justify-content:center; writing-mode:vertical-rl; transform:rotate(180deg); font-size:0.8rem; font-weight:600; color:var(--gray-medium); text-align:center;">Potential — High to Low</div>
+                            <div id="boxMatrixGrid" style="grid-row:1; grid-column:2; display:grid; grid-template-columns:repeat(3,1fr); gap:0.6rem;"><p style="text-align:center;color:var(--gray-medium);padding:1rem;grid-column:1/-1;">Loading…</p></div>
+                            <div style="grid-row:2; grid-column:2; display:flex; justify-content:space-between; font-size:0.8rem; font-weight:600; color:var(--gray-medium); margin-top:0.5rem;">
+                                <span>Low Performance</span><span>Medium Performance</span><span>High Performance</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="boxPotentialView" style="display:none;">
+                        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem;">
+                            <div><h4 style="margin-bottom:0.5rem;">High Potential</h4><div id="boxPotHigh"><p style="font-size:0.8rem;color:var(--gray-medium);">Loading…</p></div></div>
+                            <div><h4 style="margin-bottom:0.5rem;">Medium Potential</h4><div id="boxPotMed"><p style="font-size:0.8rem;color:var(--gray-medium);">Loading…</p></div></div>
+                            <div><h4 style="margin-bottom:0.5rem;">Low Potential</h4><div id="boxPotLow"><p style="font-size:0.8rem;color:var(--gray-medium);">Loading…</p></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3 id="ratingsListTitle">All Employee Ratings</h3>
+                    <p id="ratingsListSubtext" style="display:none;font-size:0.85rem;color:var(--gray-medium);margin:-0.5rem 0 1.25rem;">The bonus-linked rating for the fixed PI-eligible list, covering April–September 2026. PI % = average of the manager's Accountability/Efficiency/Competency, AI Utilization and Keeper Test scores, plus the <strong>self-assessment's OKR % Completion</strong> — the self-assessment's only input into this number. Stored separately from the annual review, in its own <code>pi_reviews</code> table.</p>
+                    <div class="admin-actions" id="ratingsActionsAnnual">
+                        <button class="btn btn-primary" onclick="exportAllRatings()">
+                            <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 16.25C5.41421 16.25 5.75 16.5858 5.75 17V19C5.75 19.1381 5.86193 19.25 6 19.25H18C18.1381 19.25 18.25 19.1381 18.25 19V17C18.25 16.5858 18.5858 16.25 19 16.25C19.4142 16.25 19.75 16.5858 19.75 17V19C19.75 19.9665 18.9665 20.75 18 20.75H6C5.0335 20.75 4.25 19.9665 4.25 19V17C4.25 16.5858 4.58579 16.25 5 16.25Z" fill="currentColor"/><path d="M10.7379 3.75C10.2236 3.75 9.79447 4.14312 9.74955 4.65555C9.59591 6.40826 9.56881 8.16959 9.66838 9.92584C9.42139 9.93949 9.1745 9.95531 8.92773 9.9733L7.43822 10.0819C6.86392 10.1237 6.54288 10.7641 6.85293 11.2493C7.91497 12.9114 9.28343 14.3563 10.8854 15.5071L11.4821 15.9358C11.7916 16.1581 12.2085 16.1581 12.518 15.9358L13.1147 15.5071C14.7167 14.3563 16.0851 12.9114 17.1472 11.2493C17.4572 10.7641 17.1362 10.1237 16.5619 10.0819L15.0724 9.9733C14.8256 9.95531 14.5787 9.93949 14.3317 9.92584C14.4313 8.16959 14.4042 6.40826 14.2506 4.65554C14.2056 4.14312 13.7765 3.75 13.2622 3.75H10.7379Z" fill="currentColor"/></svg></span> Export All to CSV
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadFilteredRatingsCSV()">
+                            <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 16.25C5.41421 16.25 5.75 16.5858 5.75 17V19C5.75 19.1381 5.86193 19.25 6 19.25H18C18.1381 19.25 18.25 19.1381 18.25 19V17C18.25 16.5858 18.5858 16.25 19 16.25C19.4142 16.25 19.75 16.5858 19.75 17V19C19.75 19.9665 18.9665 20.75 18 20.75H6C5.0335 20.75 4.25 19.9665 4.25 19V17C4.25 16.5858 4.58579 16.25 5 16.25Z" fill="currentColor"/><path d="M10.7379 3.75C10.2236 3.75 9.79447 4.14312 9.74955 4.65555C9.59591 6.40826 9.56881 8.16959 9.66838 9.92584C9.42139 9.93949 9.1745 9.95531 8.92773 9.9733L7.43822 10.0819C6.86392 10.1237 6.54288 10.7641 6.85293 11.2493C7.91497 12.9114 9.28343 14.3563 10.8854 15.5071L11.4821 15.9358C11.7916 16.1581 12.2085 16.1581 12.518 15.9358L13.1147 15.5071C14.7167 14.3563 16.0851 12.9114 17.1472 11.2493C17.4572 10.7641 17.1362 10.1237 16.5619 10.0819L15.0724 9.9733C14.8256 9.95531 14.5787 9.93949 14.3317 9.92584C14.4313 8.16959 14.4042 6.40826 14.2506 4.65554C14.2056 4.14312 13.7765 3.75 13.2622 3.75H10.7379Z" fill="currentColor"/></svg></span> Download Current View
+                        </button>
+                        <button class="btn btn-secondary" onclick="showComparisonView()">
+                            <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.25 2.7454C11.25 2.6288 11.1501 2.53678 11.0341 2.5485C6.24107 3.03249 2.5 7.07936 2.5 12C2.5 17.2467 6.75329 21.5 12 21.5C14.6367 21.5 17.0227 20.4254 18.7434 18.6915C18.8256 18.6087 18.8165 18.4734 18.7258 18.4L11.5286 12.5833C11.3524 12.4409 11.25 12.2265 11.25 12V2.7454Z" fill="currentColor"/><path d="M19.6695 17.2341C19.7601 17.3074 19.8942 17.2879 19.958 17.1903C20.7671 15.9522 21.2952 14.5134 21.4515 12.9654C21.4632 12.8494 21.3712 12.75 21.2546 12.75H14.6868C14.4983 12.75 14.4145 12.987 14.5611 13.1055L19.6695 17.2341Z" fill="currentColor"/><path d="M21.2546 11.25C21.3712 11.25 21.4632 11.1502 21.4515 11.0342C20.9996 6.55868 17.4413 3.00039 12.9658 2.54849C12.8498 2.53678 12.75 2.6288 12.75 2.7454V10.95C12.75 11.1157 12.8843 11.25 13.05 11.25H21.2546Z" fill="currentColor"/></svg></span> View Comparisons
+                        </button>
+                    </div>
+                    <div class="admin-actions" id="ratingsActionsPI" style="display:none;">
+                        <button class="btn btn-primary" onclick="exportAllPI()">
+                            <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 16.25C5.41421 16.25 5.75 16.5858 5.75 17V19C5.75 19.1381 5.86193 19.25 6 19.25H18C18.1381 19.25 18.25 19.1381 18.25 19V17C18.25 16.5858 18.5858 16.25 19 16.25C19.4142 16.25 19.75 16.5858 19.75 17V19C19.75 19.9665 18.9665 20.75 18 20.75H6C5.0335 20.75 4.25 19.9665 4.25 19V17C4.25 16.5858 4.58579 16.25 5 16.25Z" fill="currentColor"/><path d="M10.7379 3.75C10.2236 3.75 9.79447 4.14312 9.74955 4.65555C9.59591 6.40826 9.56881 8.16959 9.66838 9.92584C9.42139 9.93949 9.1745 9.95531 8.92773 9.9733L7.43822 10.0819C6.86392 10.1237 6.54288 10.7641 6.85293 11.2493C7.91497 12.9114 9.28343 14.3563 10.8854 15.5071L11.4821 15.9358C11.7916 16.1581 12.2085 16.1581 12.518 15.9358L13.1147 15.5071C14.7167 14.3563 16.0851 12.9114 17.1472 11.2493C17.4572 10.7641 17.1362 10.1237 16.5619 10.0819L15.0724 9.9733C14.8256 9.95531 14.5787 9.93949 14.3317 9.92584C14.4313 8.16959 14.4042 6.40826 14.2506 4.65554C14.2056 4.14312 13.7765 3.75 13.2622 3.75H10.7379Z" fill="currentColor"/></svg></span> Export PI Report to CSV
+                        </button>
+                    </div>
+
+                    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; margin-bottom:1.25rem;">
+                        <div class="form-field" style="min-width:240px;">
+                            <label>Cycle:</label>
+                            <select id="ratingsCycleFilter" onchange="filterRatingsList()">
+                                <option value="all">All Cycles</option>
+                            </select>
+                        </div>
+                        <div class="form-field" style="flex:1; min-width:260px;">
+                            <label>Search:</label>
+                            <input type="text" id="ratingsSearchBox" class="search-input" placeholder="Search by name, ID, department, reviewer…" oninput="filterRatingsList()">
+                        </div>
+                    </div>
+
+                    <div id="ratingsList">
+                        <!-- Ratings (annual or PI, depending on the Cycle selection above) will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div><!-- /.app-shell -->
+
+    <!-- Toast notification container -->
+    <div id="toast-container"></div>
+
+    <!-- Keeper Test Modal removed — now inline in the rating form -->
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- COMPARISON VIEW MODAL                                         -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="comparisonModal" class="modal">
+        <div class="modal-content" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h2 class="modal-title"><span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.25 2.7454C11.25 2.6288 11.1501 2.53678 11.0341 2.5485C6.24107 3.03249 2.5 7.07936 2.5 12C2.5 17.2467 6.75329 21.5 12 21.5C14.6367 21.5 17.0227 20.4254 18.7434 18.6915C18.8256 18.6087 18.8165 18.4734 18.7258 18.4L11.5286 12.5833C11.3524 12.4409 11.25 12.2265 11.25 12V2.7454Z" fill="currentColor"/><path d="M19.6695 17.2341C19.7601 17.3074 19.8942 17.2879 19.958 17.1903C20.7671 15.9522 21.2952 14.5134 21.4515 12.9654C21.4632 12.8494 21.3712 12.75 21.2546 12.75H14.6868C14.4983 12.75 14.4145 12.987 14.5611 13.1055L19.6695 17.2341Z" fill="currentColor"/><path d="M21.2546 11.25C21.3712 11.25 21.4632 11.1502 21.4515 11.0342C20.9996 6.55868 17.4413 3.00039 12.9658 2.54849C12.8498 2.53678 12.75 2.6288 12.75 2.7454V10.95C12.75 11.1157 12.8843 11.25 13.05 11.25H21.2546Z" fill="currentColor"/></svg></span> Self-Assessment vs Manager Rating Comparison</h2>
+                <button class="modal-close" onclick="closeComparisonModal()">×</button>
+            </div>
+
+            <div id="comparisonContent">
+                <!-- Comparison content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Profile Modal -->
+    <div id="employeeProfileModal" class="modal">
+        <div class="modal-content" style="max-width: 1000px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="employeeProfileTitle">Employee Profile</h2>
+                <button class="modal-close" onclick="closeEmployeeProfileModal()">×</button>
+            </div>
+            <div id="employeeProfileContent">
+                <!-- Profile content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Skip-Level Note Modal -->
+    <div id="skipLevelNoteModal" class="modal">
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="skipLevelNoteTitle">Skip-Level Note</h2>
+                <button class="modal-close" onclick="closeSkipLevelNoteModal()">×</button>
+            </div>
+            <input type="hidden" id="skipLevelNoteRatingId">
+            <input type="hidden" id="skipLevelNoteEmployeeId">
+            <input type="hidden" id="skipLevelNoteEmployeeName">
+            <div class="form-field" style="margin-bottom:1rem;">
+                <label>Recommendation:</label>
+                <select id="skipLevelNoteRecommendation">
+                    <option value="">-- Select --</option>
+                    <option value="endorse">Endorse</option>
+                    <option value="flag">Flag for discussion</option>
+                    <option value="recalibrate">Recommend recalibration</option>
+                </select>
+            </div>
+            <div class="form-field" style="margin-bottom:1.25rem;">
+                <label>Your POV / Note:</label>
+                <textarea id="skipLevelNoteText" rows="5" placeholder="Your perspective on this rating…"></textarea>
+            </div>
+            <p style="font-size:0.8rem;color:var(--gray-medium);margin-bottom:1rem;">This does not change the original rating. It's visible to this person's manager and anyone above them in the reporting line, not the wider org.</p>
+            <div class="action-buttons" style="margin-top:0;">
+                <button class="btn btn-secondary" onclick="closeSkipLevelNoteModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitSkipLevelNote()">Save Note</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 9-Box Cell Modal -->
+    <div id="boxCellModal" class="modal">
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="boxCellModalTitle">Cell</h2>
+                <button class="modal-close" onclick="closeBoxCellModal()">×</button>
+            </div>
+            <div id="boxCellModalContent"></div>
+        </div>
+    </div>
+
+    <!-- Edit Management Decision Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Management Decision</h2>
+                <button class="modal-close" onclick="closeEditModal()">×</button>
+            </div>
+
+            <div id="editRatingDetails"></div>
+
+            <div class="form-field">
+                <label>Final Decision:</label>
+                <input type="text" id="editFinalDecision" placeholder="e.g., Approved for Promotion to Senior Analyst">
+            </div>
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Approved By:</label>
+                    <input type="text" id="editApprovedBy" placeholder="Manager Name">
+                </div>
+                <div class="form-field">
+                    <label>Effective Date:</label>
+                    <input type="date" id="editEffectiveDate" value="2026-04-01" readonly style="background: #f5f5f5; cursor: not-allowed;">
+                    <small style="display: block; margin-top: 0.5rem; color: var(--gray-medium);">Fixed date: April 1, 2026</small>
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label>Management Notes:</label>
+                <textarea id="editManagementNotes" rows="4" placeholder="Any additional comments, conditions, or action items..."></textarea>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveManagementDecision()">Save Decision</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- VIEW DETAILS MODAL                                              -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="viewDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="viewDetailsTitle">Rating Details</h2>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <button id="compareToggleBtn" class="btn btn-secondary btn-sm" onclick="toggleCompareView()" title="Compare Self vs Manager" style="display:none;padding:0.35rem 0.6rem;font-size:1rem;line-height:1;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <button class="modal-close" onclick="closeViewDetailsModal()">&times;</button>
+                </div>
+            </div>
+            <div id="viewDetailsContent">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- ADMIN EDIT RATINGS MODAL                                        -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="editRatingsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="editRatingsModalTitle">Edit Ratings &amp; OKRs</h2>
+                <button class="modal-close" onclick="closeEditRatingsModal()">&times;</button>
+            </div>
+            <div id="editRatingsEmployeeInfo"></div>
+            <div id="editRatingsFields">
+                <!-- Populated by JS based on self vs manager, or blank for Add mode -->
+            </div>
+            <div class="action-buttons" style="margin-top: 1.5rem;">
+                <button class="btn btn-secondary" onclick="closeEditRatingsModal()">Cancel</button>
+                <button class="btn btn-primary" id="editRatingsSaveBtn" onclick="saveEditedRatings()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- PROFILE SEARCH MODAL                                          -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <script src="js/config.js?v=15"></script>
+    <script src="js/employees.js?v=12"></script>
+    <script src="js/nineboxSnapshot.js?v=12"></script>
+    <script src="js/auth.js?v=16"></script>
+    <script src="js/app.js?v=35"></script>
+</body>
+</html>

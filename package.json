@@ -1,0 +1,10 @@
+{
+  "name": "hr-performance-template",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-native employee performance review system (template)",
+  "scripts": {
+    "dev": "npx wrangler pages dev .",
+    "preview": "npx serve ."
+  }
+}
